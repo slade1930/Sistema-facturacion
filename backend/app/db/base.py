@@ -1,5 +1,5 @@
 from sqlalchemy import MetaData
-from sqlalchemy.orm import declarative_base
+from sqlalchemy.orm import DeclarativeBase
 
 
 NOMBRES = {
@@ -10,4 +10,6 @@ NOMBRES = {
     "pk": "pk_%(table_name)s",
 }
 
-Base = declarative_base(metadata=MetaData(naming_convention=NOMBRES))
+
+class Base(DeclarativeBase):
+    metadata = MetaData(naming_convention=NOMBRES)

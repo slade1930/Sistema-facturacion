@@ -3,13 +3,15 @@ from pathlib import Path
 from alembic import command
 from alembic.config import Config
 
-ALEMBIC_DIR = Path(__file__).resolve().parents[2] / "alembic"
-ARCHIVO_CONFIG = ALEMBIC_DIR / "alembic.ini"
+
+ARCHIVO_CONFIG = Path(__file__).resolve().parents[2] / "alembic.ini"
+
 
 def init_db() -> None:
     """Aplica todas las migraciones. Unica forma permitida de crear tablas."""
     config = Config(str(ARCHIVO_CONFIG))
     command.upgrade(config, "head")
+
 
 def probar_conexion() -> bool:
     """Prueba de solo lectura: SELECT 1. No modifica la base."""
