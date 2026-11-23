@@ -1,7 +1,25 @@
-from sqlalchemy import CheckConstraint, UniqueConstraint
+from sqlalchemy import UniqueConstraint
 
 from app.db.base import Base
 from app.models import facturacion  # noqa: F401
+
+TABLAS_ESPERADAS = {
+    "configuracion_negocio",
+    "contador_serie",
+    "contador_orden_compra",
+    "factura",
+    "linea_factura",
+    "categoria",
+    "producto",
+    "cliente_b2b",
+    "pedido_b2b",
+    "linea_pedido_b2b",
+}
+
+
+def test_tablas_del_pr1():
+    assert TABLAS_ESPERADAS == set(Base.metadata.tables)
+    assert len(Base.metadata.tables) == 10
 
 
 def test_factura_no_tiene_fk_a_configuracion_negocio():
@@ -11,37 +29,44 @@ def test_factura_no_tiene_fk_a_configuracion_negocio():
     assert destinos == set(), destinos
 
 
-def test_factura_generada_id_sin_unique():
+def test_factura_no_tiene_factura_generada_id():
+    assert "factura_generada_id" not in Base.metadata.tables["factura"].c
+
+
+def test_codigo_verificacion_unico_de_12_caracteres():
     tabla = Base.metadata.tables["factura"]
+    columna = tabla.c.codigo_verificacion
+    assert columna.unique is True
+    assert columna.type.length == 12
+
+
+def test_factura_generada_id_en_pedido_sin_fk_ni_unique():
+    tabla = Base.metadata.tables["pedido_b2b"]
+    columna = tabla.c.factura_generada_id
+    assert columna.unique is not True
+    assert not any(fk.parent is columna for fk in tabla.foreign_keys)
     columnas_unicas = set()
     for restriccion in tabla.constraints:
         if isinstance(restriccion, UniqueConstraint):
-            columnas_unicas.update(columna.name for columna in restriccion.columns)
+            columnas_unicas.update(c.name for c in restriccion.columns)
     assert "factura_generada_id" not in columnas_unicas
-    assert tabla.c.factura_generada_id.unique is not True
 
 
-def test_codigo_verificacion_unico():
-    tabla = Base.metadata.tables["factura"]
-    assert tabla.c.codigo_verificacion.unique is True
-
-
-def test_check_de_itbms_exento():
+def test_linea_factura_tiene_gravada_y_monto():
     tabla = Base.metadata.tables["linea_factura"]
-    checks = [c for c in tabla.constraints if isinstance(c, CheckConstraint)]
-    assert any(
-        "tasa_itbms" in str(c.sqltext) and "impuesto" in str(c.sqltext)
-        for c in checks
-    )
+    assert "gravada" in tabla.c
+    assert "monto" in tabla.c
+    assert "tasa_itbms" not in tabla.c
 
 
-def test_tablas_del_pr1():
-    esperadas = {
-        "configuracion_negocio",
-        "contador_serie",
-        "contador_orden_compra",
-        "factura",
-        "linea_factura",
+def test_todas_las_relaciones_del_drawio():
+    relaciones = {
+        "linea_factura": {"factura.id", "producto.id"},
+        "producto": {"categoria.id"},
+        "pedido_b2b": {"cliente_b2b.id"},
+        "linea_pedido_b2b": {"pedido_b2b.id", "producto.id"},
     }
-    assert esperadas <= set(Base.metadata.tables)
-    assert len(Base.metadata.tables) == 5
+    for nombre, esperados in relaciones.items():
+        tabla = Base.metadata.tables[nombre]
+        destinos = {fk.target_fullname for fk in tabla.foreign_keys}
+        assert esperados <= destinos, (nombre, destinos)
