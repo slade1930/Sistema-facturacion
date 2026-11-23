@@ -1,13 +1,20 @@
-from sqlalchemy import Column, DateTime, func
+from datetime import datetime
+
+from sqlalchemy import DateTime, func
+from sqlalchemy.orm import Mapped, mapped_column
 
 
 class TimestampMixin:
-    created_at = Column(
-        DateTime(timezone=True),
-        nullable=False,
-        server_default=func.now(),
+    """Gente, solo las fechas que realmente están en el esquema oficial.
+
+    Las comparten producto y pedido_b2b: fecha_creacion y fecha_actualizacion,
+    mismos tipos y mismo server_default. Nada de created_at/updated_at inventados.
+    """
+
+    fecha_creacion: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now()
     )
-    updated_at = Column(
+    fecha_actualizacion: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         nullable=False,
         server_default=func.now(),

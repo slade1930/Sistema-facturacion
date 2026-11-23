@@ -1,10 +1,11 @@
+from datetime import date, datetime
 from decimal import Decimal
+from typing import Optional
 
 from sqlalchemy import (
     BigInteger,
     Boolean,
     CheckConstraint,
-    Column,
     Date,
     DateTime,
     ForeignKey,
@@ -16,29 +17,33 @@ from sqlalchemy import (
     UniqueConstraint,
     func,
 )
-from sqlalchemy.orm import relationship
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.base import Base
+from app.models.mixins import TimestampMixin
 
 BIGINT = BigInteger().with_variant(Integer, "sqlite")
 
 
 class ConfiguracionNegocio(Base):
     __tablename__ = "configuracion_negocio"
-    id = Column(BIGINT, primary_key=True)
-    empresa_nombre = Column(String(150), nullable=False)
-    empresa_ruc = Column(String(40), nullable=False, unique=True)
-    mostrar_ruc = Column(Boolean, nullable=False, default=False, server_default="false")
-    empresa_direccion = Column(Text)
-    empresa_correo = Column(String(254))
-    empresa_telefono = Column(String(60))
-    logo = Column(String(100))
-    color_principal = Column(String(7))
-    color_barra_factura = Column(String(7))
-    color_tabla = Column(String(7))
-    datos_bancarios = Column(Text)
-    notas_predeterminadas = Column(Text)
-    actualizado = Column(
+
+    id: Mapped[int] = mapped_column(BIGINT, primary_key=True)
+    empresa_nombre: Mapped[str] = mapped_column(String(150), nullable=False)
+    empresa_ruc: Mapped[str] = mapped_column(String(40), nullable=False, unique=True)
+    mostrar_ruc: Mapped[bool] = mapped_column(
+        Boolean, nullable=False, default=False, server_default="false"
+    )
+    empresa_direccion: Mapped[str | None] = mapped_column(Text, nullable=True)
+    empresa_correo: Mapped[str | None] = mapped_column(String(254), nullable=True)
+    empresa_telefono: Mapped[str | None] = mapped_column(String(60), nullable=True)
+    logo: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    color_principal: Mapped[str | None] = mapped_column(String(7), nullable=True)
+    color_barra_factura: Mapped[str | None] = mapped_column(String(7), nullable=True)
+    color_tabla: Mapped[str | None] = mapped_column(String(7), nullable=True)
+    datos_bancarios: Mapped[str | None] = mapped_column(Text, nullable=True)
+    notas_predeterminadas: Mapped[str | None] = mapped_column(Text, nullable=True)
+    actualizado: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         nullable=False,
         server_default=func.now(),
@@ -54,9 +59,11 @@ class ContadorSerie(Base):
         CheckConstraint("ultimo_numero >= 0", name="ck_contador_serie_ultimo"),
     )
 
-    id = Column(BIGINT, primary_key=True)
-    anio = Column(Integer, nullable=False)
-    ultimo_numero = Column(Integer, nullable=False, default=0, server_default="0")
+    id: Mapped[int] = mapped_column(BIGINT, primary_key=True)
+    anio: Mapped[int] = mapped_column(Integer, nullable=False)
+    ultimo_numero: Mapped[int] = mapped_column(
+        Integer, nullable=False, default=0, server_default="0"
+    )
 
 
 class ContadorOrdenCompra(Base):
@@ -67,9 +74,11 @@ class ContadorOrdenCompra(Base):
         CheckConstraint("ultimo_numero >= 0", name="ck_contador_orden_compra_ultimo"),
     )
 
-    id = Column(BIGINT, primary_key=True)
-    anio = Column(Integer, nullable=False)
-    ultimo_numero = Column(Integer, nullable=False, default=0, server_default="0")
+    id: Mapped[int] = mapped_column(BIGINT, primary_key=True)
+    anio: Mapped[int] = mapped_column(Integer, nullable=False)
+    ultimo_numero: Mapped[int] = mapped_column(
+        Integer, nullable=False, default=0, server_default="0"
+    )
 
 
 class Factura(Base):
@@ -88,52 +97,60 @@ class Factura(Base):
         Index("ix_factura_fecha", "fecha"),
     )
 
-    id = Column(BIGINT, primary_key=True)
-    numero_serie = Column(String(20), nullable=False, unique=True)
-    codigo_verificacion = Column(String(12), nullable=False, unique=True)
-    fecha = Column(Date, nullable=False)
+    id: Mapped[int] = mapped_column(BIGINT, primary_key=True)
+    numero_serie: Mapped[str] = mapped_column(String(20), nullable=False, unique=True)
+    codigo_verificacion: Mapped[str] = mapped_column(
+        String(12), nullable=False, unique=True
+    )
+    fecha: Mapped[date] = mapped_column(Date, nullable=False)
 
-    cliente_nombre = Column(String(200), nullable=False)
-    cliente_ruc = Column(String(40))
-    mostrar_ruc = Column(Boolean, nullable=False, default=False, server_default="false")
-    cliente_direccion = Column(String(250))
-    cliente_telefono = Column(String(60))
-    cliente_correo = Column(String(254))
-    sucursal = Column(String(150))
-    vendedor = Column(String(150))
-    orden_compra = Column(String(60))
-    condicion_pago = Column(String(30))
-    portes = Column(
+    cliente_nombre: Mapped[str] = mapped_column(String(200), nullable=False)
+    cliente_ruc: Mapped[str | None] = mapped_column(String(40), nullable=True)
+    mostrar_ruc: Mapped[bool] = mapped_column(
+        Boolean, nullable=False, default=False, server_default="false"
+    )
+    cliente_direccion: Mapped[str | None] = mapped_column(String(250), nullable=True)
+    cliente_telefono: Mapped[str | None] = mapped_column(String(60), nullable=True)
+    cliente_correo: Mapped[str | None] = mapped_column(String(254), nullable=True)
+    sucursal: Mapped[str | None] = mapped_column(String(150), nullable=True)
+    vendedor: Mapped[str | None] = mapped_column(String(150), nullable=True)
+    orden_compra: Mapped[str | None] = mapped_column(String(60), nullable=True)
+    condicion_pago: Mapped[str | None] = mapped_column(String(30), nullable=True)
+    portes: Mapped[Decimal] = mapped_column(
         Numeric(14, 2), nullable=False, default=Decimal("0.00"), server_default="0.00"
     )
-    notas = Column(Text)
+    notas: Mapped[str | None] = mapped_column(Text, nullable=True)
 
-    subtotal = Column(
+    subtotal: Mapped[Decimal] = mapped_column(
         Numeric(14, 2), nullable=False, default=Decimal("0.00"), server_default="0.00"
     )
-    descuento_total = Column(
+    descuento_total: Mapped[Decimal] = mapped_column(
         Numeric(14, 2), nullable=False, default=Decimal("0.00"), server_default="0.00"
     )
-    base_gravada = Column(
+    base_gravada: Mapped[Decimal] = mapped_column(
         Numeric(14, 2), nullable=False, default=Decimal("0.00"), server_default="0.00"
     )
-    base_exenta = Column(
+    base_exenta: Mapped[Decimal] = mapped_column(
         Numeric(14, 2), nullable=False, default=Decimal("0.00"), server_default="0.00"
     )
-    itbms = Column(
+    itbms: Mapped[Decimal] = mapped_column(
         Numeric(14, 2), nullable=False, default=Decimal("0.00"), server_default="0.00"
     )
-    total = Column(
+    total: Mapped[Decimal] = mapped_column(
         Numeric(14, 2), nullable=False, default=Decimal("0.00"), server_default="0.00"
     )
 
-    estado = Column(String(15), nullable=False, default="EMITIDA", server_default="EMITIDA")
-    fecha_creacion = Column(
+    estado: Mapped[str] = mapped_column(
+        String(15), nullable=False, default="EMITIDA", server_default="EMITIDA"
+    )
+    fecha_creacion: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, server_default=func.now()
     )
-    fecha_anulacion = Column(DateTime(timezone=True))
+    fecha_anulacion: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
 
-    lineas = relationship(
+    lineas: Mapped[list["LineaFactura"]] = relationship(
         "LineaFactura", back_populates="factura", cascade="all, delete-orphan"
     )
 
@@ -150,128 +167,141 @@ class LineaFactura(Base):
         Index("ix_linea_factura_producto", "producto_id"),
     )
 
-    id = Column(BIGINT, primary_key=True)
-    factura_id = Column(
+    id: Mapped[int] = mapped_column(BIGINT, primary_key=True)
+    factura_id: Mapped[int] = mapped_column(
         BIGINT, ForeignKey("factura.id", ondelete="CASCADE"), nullable=False
     )
-    orden = Column(Integer, nullable=False)
-    descripcion = Column(String(300), nullable=False)
-    codigo_barras = Column(String(100))
-    categoria = Column(String(120))
-    cantidad = Column(Numeric(14, 2), nullable=False)
-    precio_unitario = Column(Numeric(14, 2), nullable=False)
-    precio_unidad = Column(Numeric(14, 2))
-    descuento_pct = Column(
+    orden: Mapped[int] = mapped_column(Integer, nullable=False)
+    descripcion: Mapped[str] = mapped_column(String(300), nullable=False)
+    codigo_barras: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    categoria: Mapped[str | None] = mapped_column(String(120), nullable=True)
+    cantidad: Mapped[Decimal] = mapped_column(Numeric(14, 2), nullable=False)
+    precio_unitario: Mapped[Decimal] = mapped_column(Numeric(14, 2), nullable=False)
+    precio_unidad: Mapped[Decimal | None] = mapped_column(Numeric(14, 2), nullable=True)
+    descuento_pct: Mapped[Decimal] = mapped_column(
         Numeric(6, 2), nullable=False, default=Decimal("0.00"), server_default="0.00"
     )
-    gravada = Column(Boolean, nullable=False, default=False, server_default="false")
-    unidades_por_caja = Column(Integer)
-    cobrar_por = Column(String(30))
-    monto = Column(Numeric(14, 2), nullable=False)
-    producto_id = Column(BIGINT, ForeignKey("producto.id"), nullable=True)
+    gravada: Mapped[bool] = mapped_column(
+        Boolean, nullable=False, default=False, server_default="false"
+    )
+    unidades_por_caja: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    cobrar_por: Mapped[str | None] = mapped_column(String(30), nullable=True)
+    monto: Mapped[Decimal] = mapped_column(Numeric(14, 2), nullable=False)
+    producto_id: Mapped[int | None] = mapped_column(
+        BIGINT, ForeignKey("producto.id"), nullable=True
+    )
 
-    factura = relationship("Factura", back_populates="lineas")
-    producto = relationship("Producto", back_populates="lineas_factura")
+    factura: Mapped["Factura"] = relationship("Factura", back_populates="lineas")
+    producto: Mapped[Optional["Producto"]] = relationship(
+        "Producto", back_populates="lineas_factura"
+    )
 
 
 class Categoria(Base):
     __tablename__ = "categoria"
 
-    id = Column(BIGINT, primary_key=True)
-    nombre = Column(String(100), nullable=False, unique=True)
+    id: Mapped[int] = mapped_column(BIGINT, primary_key=True)
+    nombre: Mapped[str] = mapped_column(String(100), nullable=False, unique=True)
 
-    productos = relationship("Producto", back_populates="categoria")
+    productos: Mapped[list["Producto"]] = relationship(
+        "Producto", back_populates="categoria"
+    )
 
 
-class Producto(Base):
+class Producto(TimestampMixin, Base):
     __tablename__ = "producto"
     __table_args__ = (
         UniqueConstraint("sku", name="uq_producto_sku"),
         Index("ix_producto_categoria", "categoria_id"),
     )
 
-    id = Column(BIGINT, primary_key=True)
-    categoria_id = Column(BIGINT, ForeignKey("categoria.id"), nullable=True)
-    nombre = Column(String(200), nullable=False)
-    sku = Column(String(50), nullable=False)
-    codigo_barras = Column(String(50))
-    descripcion_corta = Column(String(500))
-    imagen = Column(String(100))
-    precio_caja = Column(Numeric(14, 2), nullable=False)
-    precio_media_caja = Column(Numeric(14, 2))
-    permite_media_caja = Column(
+    id: Mapped[int] = mapped_column(BIGINT, primary_key=True)
+    categoria_id: Mapped[int | None] = mapped_column(
+        BIGINT, ForeignKey("categoria.id"), nullable=True
+    )
+    nombre: Mapped[str] = mapped_column(String(200), nullable=False)
+    sku: Mapped[str] = mapped_column(String(50), nullable=False)
+    codigo_barras: Mapped[str | None] = mapped_column(String(50), nullable=True)
+    descripcion_corta: Mapped[str | None] = mapped_column(String(500), nullable=True)
+    imagen: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    precio_caja: Mapped[Decimal] = mapped_column(Numeric(14, 2), nullable=False)
+    precio_media_caja: Mapped[Decimal | None] = mapped_column(
+        Numeric(14, 2), nullable=True
+    )
+    permite_media_caja: Mapped[bool] = mapped_column(
         Boolean, nullable=False, default=False, server_default="false"
     )
-    precio_unidad = Column(Numeric(14, 2))
-    precio_consumidor = Column(Numeric(10, 2))
-    unidades_por_caja = Column(Integer)
-    aplica_itbms = Column(Boolean, nullable=False, default=True, server_default="true")
-    estado_activo = Column(Boolean, nullable=False, default=True, server_default="true")
-    fecha_creacion = Column(
-        DateTime(timezone=True), nullable=False, server_default=func.now()
+    precio_unidad: Mapped[Decimal | None] = mapped_column(Numeric(14, 2), nullable=True)
+    precio_consumidor: Mapped[Decimal | None] = mapped_column(
+        Numeric(10, 2), nullable=True
     )
-    fecha_actualizacion = Column(
-        DateTime(timezone=True),
-        nullable=False,
-        server_default=func.now(),
-        onupdate=func.now(),
+    unidades_por_caja: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    aplica_itbms: Mapped[bool] = mapped_column(
+        Boolean, nullable=False, default=True, server_default="true"
+    )
+    estado_activo: Mapped[bool] = mapped_column(
+        Boolean, nullable=False, default=True, server_default="true"
     )
 
-    categoria = relationship("Categoria", back_populates="productos")
-    lineas_factura = relationship("LineaFactura", back_populates="producto")
-    lineas_pedido = relationship("LineaPedidoB2B", back_populates="producto")
+    categoria: Mapped[Optional["Categoria"]] = relationship(
+        "Categoria", back_populates="productos"
+    )
+    lineas_factura: Mapped[list["LineaFactura"]] = relationship(
+        "LineaFactura", back_populates="producto"
+    )
+    lineas_pedido: Mapped[list["LineaPedidoB2B"]] = relationship(
+        "LineaPedidoB2B", back_populates="producto"
+    )
 
 
 class ClienteB2B(Base):
     __tablename__ = "cliente_b2b"
     __table_args__ = (UniqueConstraint("ruc", name="uq_cliente_b2b_ruc"),)
 
-    id = Column(BIGINT, primary_key=True)
-    nombre_empresa = Column(String(200), nullable=False)
-    ruc = Column(String(40), nullable=False)
-    email_contacto = Column(String(254))
-    telefono = Column(String(60))
-    direccion = Column(Text)
-    fecha_registro = Column(
+    id: Mapped[int] = mapped_column(BIGINT, primary_key=True)
+    nombre_empresa: Mapped[str] = mapped_column(String(200), nullable=False)
+    ruc: Mapped[str] = mapped_column(String(40), nullable=False)
+    email_contacto: Mapped[str | None] = mapped_column(String(254), nullable=True)
+    telefono: Mapped[str | None] = mapped_column(String(60), nullable=True)
+    direccion: Mapped[str | None] = mapped_column(Text, nullable=True)
+    fecha_registro: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, server_default=func.now()
     )
-    activo = Column(Boolean, nullable=False, default=True, server_default="true")
+    activo: Mapped[bool] = mapped_column(
+        Boolean, nullable=False, default=True, server_default="true"
+    )
 
-    pedidos = relationship("PedidoB2B", back_populates="cliente")
+    pedidos: Mapped[list["PedidoB2B"]] = relationship(
+        "PedidoB2B", back_populates="cliente"
+    )
 
 
-class PedidoB2B(Base):
+class PedidoB2B(TimestampMixin, Base):
     __tablename__ = "pedido_b2b"
     __table_args__ = (
         Index("ix_pedido_b2b_cliente", "cliente_id"),
         Index("ix_pedido_b2b_factura_generada", "factura_generada_id"),
     )
 
-    id = Column(BIGINT, primary_key=True)
-    cliente_id = Column(
+    id: Mapped[int] = mapped_column(BIGINT, primary_key=True)
+    cliente_id: Mapped[int] = mapped_column(
         BIGINT, ForeignKey("cliente_b2b.id"), nullable=False
     )
-    fecha_creacion = Column(
-        DateTime(timezone=True), nullable=False, server_default=func.now()
+    estado: Mapped[str] = mapped_column(
+        String(30), nullable=False, default="PENDIENTE", server_default="PENDIENTE"
     )
-    fecha_actualizacion = Column(
-        DateTime(timezone=True),
-        nullable=False,
-        server_default=func.now(),
-        onupdate=func.now(),
-    )
-    estado = Column(String(30), nullable=False, default="PENDIENTE", server_default="PENDIENTE")
-    total_estimado = Column(
+    total_estimado: Mapped[Decimal] = mapped_column(
         Numeric(14, 2), nullable=False, default=Decimal("0.00"), server_default="0.00"
     )
-    notas = Column(Text)
-    factura_generada_id = Column(
-        BIGINT,
-        comment="Referencia debil a factura. Sin FK y sin UNIQUE.",
+    notas: Mapped[str | None] = mapped_column(Text, nullable=True)
+    factura_generada_id: Mapped[int | None] = mapped_column(
+        BIGINT, nullable=True, comment="Referencia debil a factura. Sin FK y sin UNIQUE."
     )
 
-    cliente = relationship("ClienteB2B", back_populates="pedidos")
-    lineas = relationship(
+    cliente: Mapped["ClienteB2B"] = relationship(
+        "ClienteB2B", back_populates="pedidos"
+    )
+    lineas: Mapped[list["LineaPedidoB2B"]] = relationship(
         "LineaPedidoB2B", back_populates="pedido", cascade="all, delete-orphan"
     )
 
@@ -284,13 +314,19 @@ class LineaPedidoB2B(Base):
         Index("ix_linea_pedido_producto", "producto_id"),
     )
 
-    id = Column(BIGINT, primary_key=True)
-    pedido_id = Column(BIGINT, ForeignKey("pedido_b2b.id"), nullable=False)
-    producto_id = Column(BIGINT, ForeignKey("producto.id"), nullable=False)
-    tipo_empaque = Column(String(30))
-    cantidad = Column(Numeric(14, 2), nullable=False)
-    subtotal = Column(Numeric(14, 2), nullable=False)
-    orden = Column(Integer, nullable=False)
+    id: Mapped[int] = mapped_column(BIGINT, primary_key=True)
+    pedido_id: Mapped[int] = mapped_column(
+        BIGINT, ForeignKey("pedido_b2b.id"), nullable=False
+    )
+    producto_id: Mapped[int] = mapped_column(
+        BIGINT, ForeignKey("producto.id"), nullable=False
+    )
+    tipo_empaque: Mapped[str | None] = mapped_column(String(30), nullable=True)
+    cantidad: Mapped[Decimal] = mapped_column(Numeric(14, 2), nullable=False)
+    subtotal: Mapped[Decimal] = mapped_column(Numeric(14, 2), nullable=False)
+    orden: Mapped[int] = mapped_column(Integer, nullable=False)
 
-    pedido = relationship("PedidoB2B", back_populates="lineas")
-    producto = relationship("Producto", back_populates="lineas_pedido")
+    pedido: Mapped["PedidoB2B"] = relationship("PedidoB2B", back_populates="lineas")
+    producto: Mapped["Producto"] = relationship(
+        "Producto", back_populates="lineas_pedido"
+    )
