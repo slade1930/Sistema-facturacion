@@ -1,0 +1,6 @@
+.env
+__pycache__/
+.venv/
+backend/media/*
+backend/ml_models/
+.pytest_cache/
