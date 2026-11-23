@@ -1,8 +1,7 @@
 from sqlalchemy import CheckConstraint, Enum as SAEnum, UniqueConstraint
 
 from app.db.base import Base
-from app.models import facturacion  # noqa: F401
-from app.models.facturacion import (
+from app.models import (
     CobrarPor,
     CondicionPago,
     EstadoFactura,
