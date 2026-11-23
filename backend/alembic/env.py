@@ -3,9 +3,6 @@ from logging.config import fileConfig
 from alembic import context
 from sqlalchemy import engine_from_config, pool
 
-# Gente, acá enganchamos Alembic con nuestra Base y con la URL de la config.
-# Cuando el Equipo 1 agregue modelos en app/models/, con importarlos en
-# app/models/__init__.py alcanza para que aparezcan en target_metadata.
 import app.models  # noqa: F401
 from app.core.config import settings
 from app.db.base import Base
