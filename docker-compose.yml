@@ -1,0 +1,32 @@
+# Gente, esto levanta lo mínimo del Hito 1: PostgreSQL y la API.
+# Los valores por defecto son de ejemplo; si quieren otros, pongan un .env en la raíz.
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-factura}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-factura}
+      POSTGRES_DB: ${POSTGRES_DB:-factura}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-factura} -d ${POSTGRES_DB:-factura}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  backend:
+    build: ./backend
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgresql+psycopg://${POSTGRES_USER:-factura}:${POSTGRES_PASSWORD:-factura}@db:5432/${POSTGRES_DB:-factura}
+    ports:
+      - "8000:8000"
+    # Esperamos a la db, pasamos migraciones y recién ahí arranca uvicorn.
+    command: >
+      sh -c "alembic upgrade head && uvicorn app.main:app --host 0.0.0.0 --port 8000"
+
+volumes:
+  postgres_data:
