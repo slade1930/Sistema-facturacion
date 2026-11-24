@@ -25,7 +25,7 @@ def precio_unitario(
     return precios[presentacion]
 
 
-def subtotal_linea(precio: Decimal, cantidad: int) -> Decimal:
+def subtotal_linea(precio: Decimal, cantidad: int | Decimal) -> Decimal:
     if cantidad <= 0:
         raise ValueError("La cantidad debe ser mayor que cero")
     return redondear(precio * cantidad)
@@ -39,7 +39,7 @@ def subtotal_pedido(subtotales_lineas: list[Decimal]) -> Decimal:
 class LineaPedido:
     descripcion: str
     presentacion: Presentacion
-    cantidad: int
+    cantidad: int | Decimal
     precio: Decimal
     unidades_por_caja: int = 1
     precio_unidad: Decimal | None = None
@@ -113,6 +113,33 @@ def pedido_a_lineas_factura(lineas: list[LineaPedido]) -> list[LineaFacturaBorra
             )
         )
     return resultado
+
+
+def precio_de_presentacion(producto, presentacion: Presentacion) -> Decimal:
+    """Precio del producto según cómo se vendió (caja, media caja o unidad)."""
+    if presentacion == Presentacion.CAJA:
+        return producto.precio_caja
+    if presentacion == Presentacion.UNIDAD:
+        return producto.precio_unidad
+    if not producto.permite_media_caja or producto.precio_media_caja is None:
+        raise ValueError(f"'{producto.nombre}' no se vende por media caja")
+    return producto.precio_media_caja
+
+
+def linea_pedido_desde_modelo(linea_modelo, producto) -> LineaPedido:
+    """Convierte LineaPedidoB2B + su Producto en una LineaPedido."""
+    valor = getattr(linea_modelo.tipo_empaque, "value", linea_modelo.tipo_empaque)
+    presentacion = Presentacion(valor)
+    return LineaPedido(
+        descripcion=producto.nombre,
+        presentacion=presentacion,
+        cantidad=linea_modelo.cantidad,
+        precio=precio_de_presentacion(producto, presentacion),
+        unidades_por_caja=producto.unidades_por_caja,
+        precio_unidad=producto.precio_unidad,
+        gravada=producto.aplica_itbms,
+        producto_id=producto.id,
+    )
 
 
 def validar_pedido_facturable(estado, factura_generada_id: int | None) -> None:

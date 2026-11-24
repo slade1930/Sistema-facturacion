@@ -9,7 +9,9 @@ from app.services.pedidos import (
     Presentacion,
     armar_datos_factura,
     calcular_pedido,
+    linea_pedido_desde_modelo,
     pedido_a_lineas_factura,
+    precio_de_presentacion,
     precio_unitario,
     subtotal_linea,
     subtotal_pedido,
@@ -38,6 +40,17 @@ TOTALES = {
     "itbms": Decimal("7.00"),
     "total": Decimal("107.00"),
 }
+
+PRODUCTO = SimpleNamespace(
+    id=7,
+    nombre="Galletas María",
+    precio_caja=Decimal("24.00"),
+    precio_media_caja=Decimal("12.50"),
+    permite_media_caja=True,
+    precio_unidad=Decimal("1.10"),
+    unidades_por_caja=12,
+    aplica_itbms=False,
+)
 
 
 # ---------- subtotales ----------
@@ -145,6 +158,50 @@ def test_media_caja_pendiente_de_definir():
 def test_pedido_sin_lineas_falla():
     with pytest.raises(ValueError):
         pedido_a_lineas_factura([])
+
+
+# ---------- precios y líneas desde el modelo ----------
+
+def test_precio_de_presentacion_caja_y_unidad():
+    assert precio_de_presentacion(PRODUCTO, Presentacion.CAJA) == Decimal("24.00")
+    assert precio_de_presentacion(PRODUCTO, Presentacion.UNIDAD) == Decimal("1.10")
+
+
+def test_precio_media_caja_permitida():
+    assert precio_de_presentacion(PRODUCTO, Presentacion.MEDIA_CAJA) == Decimal("12.50")
+
+
+def test_media_caja_no_permitida_falla():
+    producto = SimpleNamespace(**{**PRODUCTO.__dict__, "permite_media_caja": False})
+    with pytest.raises(ValueError):
+        precio_de_presentacion(producto, Presentacion.MEDIA_CAJA)
+
+
+def test_media_caja_sin_precio_falla():
+    producto = SimpleNamespace(**{**PRODUCTO.__dict__, "precio_media_caja": None})
+    with pytest.raises(ValueError):
+        precio_de_presentacion(producto, Presentacion.MEDIA_CAJA)
+
+
+def test_linea_desde_modelo_copia_datos_del_producto():
+    linea_modelo = SimpleNamespace(tipo_empaque="caja", cantidad=Decimal("3.00"))
+    linea = linea_pedido_desde_modelo(linea_modelo, PRODUCTO)
+    assert linea.descripcion == "Galletas María"
+    assert linea.presentacion == Presentacion.CAJA
+    assert linea.precio == Decimal("24.00")
+    assert linea.unidades_por_caja == 12
+    assert linea.gravada is False
+    assert linea.producto_id == 7
+    assert linea.subtotal == Decimal("72.00")
+
+
+def test_linea_desde_modelo_acepta_enum_con_value():
+    linea_modelo = SimpleNamespace(
+        tipo_empaque=SimpleNamespace(value="unidad"), cantidad=Decimal("2.00")
+    )
+    linea = linea_pedido_desde_modelo(linea_modelo, PRODUCTO)
+    assert linea.presentacion == Presentacion.UNIDAD
+    assert linea.precio == Decimal("1.10")
 
 
 # ---------- estado del pedido ----------
