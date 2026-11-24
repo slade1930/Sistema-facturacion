@@ -29,7 +29,8 @@ DUDAS ABIERTAS PARA EL EQUIPO:
    muestra el bruto en "Subtotal" y el descuento aparte, cambiar el orden.
 
 Las validaciones de cada línea (cantidad >= 0.01, precio_unitario >= 0,
-descuento_pct entre 0 y 100) se delegan en app.services.Validators.
+descuento_pct entre 0 y 100) se delegan en app.utils.validators
+(ruta oficial; app.services.Validators queda solo como re-export).
 unidades_por_caja no se valida aquí: no afecta al monto y su default
 lo aplica la base de datos.
 """
@@ -37,7 +38,7 @@ lo aplica la base de datos.
 from decimal import ROUND_HALF_UP, Decimal
 from typing import Any, Iterable, Mapping, MutableMapping
 
-from app.services.Validators import (
+from app.utils.validators import (
     a_decimal,
     validar_cantidad,
     validar_descuento_pct,
