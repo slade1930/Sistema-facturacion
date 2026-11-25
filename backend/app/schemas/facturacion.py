@@ -134,8 +134,19 @@ class ConfiguracionNegocioBase(BaseModel):
     notas_predeterminadas: Optional[str] = None
 
 
-class ConfiguracionNegocioUpdate(ConfiguracionNegocioBase):
-    pass
+class ConfiguracionNegocioUpdate(BaseModel):
+    empresa_nombre: Optional[str] = Field(default=None, min_length=1, max_length=150)
+    empresa_ruc: Optional[str] = Field(default=None, min_length=1, max_length=40)
+    mostrar_ruc: Optional[bool] = None
+    empresa_direccion: Optional[str] = None
+    empresa_correo: Optional[str] = Field(default=None, max_length=254)
+    empresa_telefono: Optional[str] = Field(default=None, max_length=60)
+    logo: Optional[str] = Field(default=None, max_length=100)
+    color_principal: Optional[str] = Field(default=None, min_length=4, max_length=7)
+    color_barra_factura: Optional[str] = Field(default=None, min_length=4, max_length=7)
+    color_tabla: Optional[str] = Field(default=None, min_length=4, max_length=7)
+    datos_bancarios: Optional[str] = None
+    notas_predeterminadas: Optional[str] = None
 
 
 class ConfiguracionNegocioRead(ConfiguracionNegocioBase):
