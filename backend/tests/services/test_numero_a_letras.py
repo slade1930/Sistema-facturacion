@@ -70,21 +70,28 @@ class TestNumeroALetras:
             numero_a_letras(Decimal("1000000000000.00"))
 
     def test_no_numerico_lanza_error(self):
+        for valor in ("abc", None, True, Decimal("NaN"), Decimal("Infinity")):
+            with pytest.raises(ValueError):
+                numero_a_letras(valor)
+
+    def test_coma_miles_se_rechaza_igual_que_en_el_validador_comun(self):
         with pytest.raises(ValueError):
-            numero_a_letras("abc")
-        with pytest.raises(ValueError):
-            numero_a_letras(None)
+            numero_a_letras("1,234.56")
 
 
 class TestMontoALetrasFactura:
-    def test_formato_con_prefijo_y_mayusculas(self):
+    def test_formato_son_en_mayusculas_con_decimal(self):
         assert monto_a_letras_factura(Decimal("1234.56")) == (
             "SON: MIL DOSCIENTOS TREINTA Y CUATRO CON 56/100"
         )
 
-    def test_prefijo_fijo_son(self):
-        # La firma actual usa prefijo fijo "SON:" (sin parámetro prefijo)
+    def test_prefijo_por_defecto_son(self):
         assert monto_a_letras_factura(10) == "SON: DIEZ CON 00/100"
+
+    def test_prefijo_personalizado(self):
+        assert monto_a_letras_factura(Decimal("10"), prefijo="USD") == (
+            "USD: DIEZ CON 00/100"
+        )
 
     def test_cero(self):
         assert monto_a_letras_factura(0) == "SON: CERO CON 00/100"

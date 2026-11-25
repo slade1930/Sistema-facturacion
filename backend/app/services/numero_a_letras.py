@@ -1,16 +1,20 @@
-"""Conversión de montos a letras en español para la factura.
+"""Gente, pasamos montos a letras en español para la factura.
 
 Sin dependencias externas. Los montos se normalizan a 2 decimales con
-ROUND_HALF_UP.
+ROUND_HALF_UP y se validan con app.utils.validators.a_decimal, igual que
+totales.py y formatters.py, para que el mismo dato se trate igual en todos.
 
 Ejemplos:
 - numero_a_letras(1234.56) -> "mil doscientos treinta y cuatro con 56/100"
 - monto_a_letras_factura(1234.56) -> "SON: MIL DOSCIENTOS TREINTA Y CUATRO CON 56/100"
+- monto_a_letras_factura(1234.56, prefijo="USD") -> "USD: ..."
 
 Tope: Numeric(14, 2) = 999,999,999,999.99. Montos mayores lanzan ValueError.
 """
 
-from decimal import ROUND_HALF_UP, Decimal, InvalidOperation
+from decimal import ROUND_HALF_UP, Decimal
+
+from app.utils.validators import a_decimal
 
 CENTAVO = Decimal("0.01")
 _MAX_MONTO = Decimal("999999999999.99")
@@ -32,19 +36,6 @@ _CENTENAS = [
     "", "ciento", "doscientos", "trescientos", "cuatrocientos",
     "quinientos", "seiscientos", "setecientos", "ochocientos", "novecientos",
 ]
-
-
-def _a_decimal(valor) -> Decimal:
-    """Convierte int, str, float o Decimal a Decimal finito."""
-    if isinstance(valor, bool):
-        raise ValueError("El monto no puede ser booleano")
-    try:
-        dec = Decimal(str(valor).replace(",", "").strip())
-    except (InvalidOperation, ValueError) as exc:
-        raise ValueError(f"Monto inválido: {valor!r}") from exc
-    if not dec.is_finite():
-        raise ValueError(f"Monto inválido: {valor!r}")
-    return dec
 
 
 def _decenas(n: int) -> str:
@@ -109,7 +100,7 @@ def _entero(n: int) -> str:
 
 def numero_a_letras(valor) -> str:
     """Convierte un monto a letras con centavos en formato 'NN/100'."""
-    monto = _a_decimal(valor).quantize(CENTAVO, rounding=ROUND_HALF_UP)
+    monto = a_decimal(valor, "monto").quantize(CENTAVO, rounding=ROUND_HALF_UP)
 
     if monto < 0:
         raise ValueError("El monto no puede ser negativo")
@@ -121,6 +112,6 @@ def numero_a_letras(valor) -> str:
     return f"{_entero(entero)} con {centavos:02d}/100"
 
 
-def monto_a_letras_factura(valor) -> str:
-    """Formato para factura: 'SON: ...' en mayúsculas."""
-    return f"SON: {numero_a_letras(valor).upper()}"
+def monto_a_letras_factura(valor, prefijo: str = "SON") -> str:
+    """Formato para factura: 'SON: ...' en mayúsculas, o el prefijo que nos pasen."""
+    return f"{prefijo}: {numero_a_letras(valor).upper()}"
