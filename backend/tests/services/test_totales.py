@@ -154,7 +154,8 @@ class TestCalcularTotales:
             )
         ]
         t = calcular_totales(lineas)
-        assert t["subtotal"] == Decimal("150.00")
+        # Con descuentos el subtotal muestra el bruto y el dto va aparte.
+        assert t["subtotal"] == Decimal("200.00")
         assert t["descuento_total"] == Decimal("50.00")
         assert t["base_gravada"] == Decimal("150.00")
         assert t["itbms"] == Decimal("10.50")
@@ -176,8 +177,8 @@ class TestCalcularTotales:
         with pytest.raises(ValueError):
             calcular_totales([], portes=Decimal("-1.00"))
 
-    def test_cobrar_por_y_unidades_no_cambian_monto(self):
-        # Regla asumida: precio_unitario ya es el precio a cobrar.
+    def test_sin_precio_unidad_caja_y_unidad_usan_el_mismo_precio(self):
+        # Sin precio_unidad, las dos formas caen en precio_unitario.
         por_unidad = _linea(
             cantidad=Decimal("2"),
             precio_unitario=Decimal("10.00"),
@@ -211,6 +212,7 @@ class TestCalcularTotales:
             )
         ]
         t = calcular_totales(lineas)
+        assert t["subtotal"] == Decimal("100.00")
         assert t["base_exenta"] == Decimal("90.00")
         assert t["descuento_total"] == Decimal("10.00")
         assert t["itbms"] == Decimal("0.00")
@@ -276,3 +278,136 @@ class TestAplicarTotales:
         assert l1.monto == Decimal("20.00")
         assert l2.monto == Decimal("5.00")
         assert t["total"] == factura.total
+
+
+class TestReglaDeCalculo:
+    """Gente, casos de la regla de cálculo para que no se nos mueva un centavo."""
+
+    def test_uno_por_cero_cero_one_five_con_diez_porciento_da_cero_cero_one(self):
+        linea = _linea(
+            cantidad=Decimal("1"),
+            precio_unitario=Decimal("0.015"),
+            descuento_pct=Decimal("10"),
+        )
+        assert calcular_monto_linea(linea) == Decimal("0.01")
+
+    def test_siete_por_cero_cero_one_two_five_con_quince_porciento_da_cero_cero_four(self):
+        linea = _linea(
+            cantidad=Decimal("7"),
+            precio_unitario=Decimal("0.125"),
+            descuento_pct=Decimal("15"),
+        )
+        assert calcular_monto_linea(linea) == Decimal("0.74")
+
+    def test_ocho_setenta_y_cinco_por_dos_con_tres_porciento(self):
+        linea = _linea(
+            cantidad=Decimal("8.75"),
+            precio_unitario=Decimal("2"),
+            descuento_pct=Decimal("3"),
+        )
+        assert calcular_monto_linea(linea) == Decimal("16.98")
+
+    def test_diecinueve_cincuenta_con_cinco_porciento(self):
+        linea = _linea(
+            cantidad=Decimal("1"),
+            precio_unitario=Decimal("19.50"),
+            descuento_pct=Decimal("5"),
+        )
+        assert calcular_monto_linea(linea) == Decimal("18.53")
+
+    def test_redondeo_half_up_empuja_el_cinco_hacia_arriba(self):
+        assert calcular_monto_linea(
+            _linea(cantidad=Decimal("1"), precio_unitario=Decimal("0.005"))
+        ) == Decimal("0.01")
+        assert calcular_monto_linea(
+            _linea(cantidad=Decimal("1"), precio_unitario=Decimal("2.345"))
+        ) == Decimal("2.35")
+
+    def test_descuento_de_cien_porciento_deja_cero(self):
+        linea = _linea(
+            cantidad=Decimal("10"),
+            precio_unitario=Decimal("10"),
+            descuento_pct=Decimal("100"),
+        )
+        assert calcular_monto_linea(linea) == Decimal("0.00")
+
+    def test_lineas_gravadas_mezcladas_con_descuentos_distintos(self):
+        lineas = [
+            _linea(
+                cantidad=Decimal("2"),
+                precio_unitario=Decimal("8.75"),
+                descuento_pct=Decimal("3"),
+                gravada=True,
+            ),
+            _linea(
+                cantidad=Decimal("1"),
+                precio_unitario=Decimal("19.50"),
+                descuento_pct=Decimal("5"),
+                gravada=True,
+            ),
+        ]
+        t = calcular_totales(lineas)
+        assert t == {
+            "subtotal": Decimal("37.00"),
+            "descuento_total": Decimal("1.49"),
+            "base_gravada": Decimal("35.51"),
+            "base_exenta": Decimal("0.00"),
+            "itbms": Decimal("2.49"),
+            "total": Decimal("38.00"),
+        }
+        assert t["subtotal"] - t["descuento_total"] == (
+            t["base_gravada"] + t["base_exenta"]
+        )
+
+    def test_linea_exenta_con_descuento_y_gravada_sin_descuento(self):
+        lineas = [
+            _linea(
+                cantidad=Decimal("1"),
+                precio_unitario=Decimal("100.00"),
+                descuento_pct=Decimal("10"),
+                gravada=False,
+            ),
+            _linea(
+                cantidad=Decimal("1"),
+                precio_unitario=Decimal("50.00"),
+                gravada=True,
+            ),
+        ]
+        t = calcular_totales(lineas)
+        assert t["subtotal"] == Decimal("150.00")
+        assert t["descuento_total"] == Decimal("10.00")
+        assert t["base_exenta"] == Decimal("90.00")
+        assert t["base_gravada"] == Decimal("50.00")
+        assert t["itbms"] == Decimal("3.50")
+        assert t["total"] == Decimal("143.50")
+
+    def test_una_linea_por_caja_y_otra_por_unidad(self):
+        lineas = [
+            _linea(
+                cantidad=Decimal("12"),
+                precio_unitario=Decimal("30.00"),
+                cobrar_por="unidad",
+                unidades_por_caja=24,
+            ),
+            _linea(
+                cantidad=Decimal("2"),
+                precio_unitario=Decimal("30.00"),
+                cobrar_por="caja",
+                unidades_por_caja=24,
+            ),
+        ]
+        t = calcular_totales(lineas)
+        assert t["subtotal"] == Decimal("420.00")
+        assert t["base_gravada"] == Decimal("420.00")
+        assert t["itbms"] == Decimal("29.40")
+        assert t["total"] == Decimal("449.40")
+
+    def test_precio_unidad_directo_tiene_prioridad(self):
+        por_unidad = _linea(
+            cantidad=Decimal("5"),
+            precio_unitario=Decimal("10.00"),
+            precio_unidad=Decimal("2.50"),
+        )
+        por_caja = {**por_unidad, "cobrar_por": "caja"}
+        assert calcular_monto_linea(por_unidad) == Decimal("12.50")
+        assert calcular_monto_linea(por_caja) == Decimal("50.00")

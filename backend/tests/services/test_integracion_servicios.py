@@ -106,7 +106,8 @@ def test_flujo_completo_emision_a_comprobante(monkeypatch):
     totales = aplicar_totales(factura)
     assert factura["lineas"][0]["monto"] == Decimal("1.81")
     assert totales == {
-        "subtotal": Decimal("21.81"),
+        # Con descuentos el subtotal es el bruto (2.01 + 20.00), dto aparte.
+        "subtotal": Decimal("22.01"),
         "descuento_total": Decimal("0.20"),
         "base_gravada": Decimal("1.81"),
         "base_exenta": Decimal("20.00"),

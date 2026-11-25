@@ -1,38 +1,25 @@
-"""Cálculo de totales de factura con Decimal y ROUND_HALF_UP.
+"""Gente, acá calculamos los totales de la factura con Decimal y ROUND_HALF_UP.
 
-Esquema oficial (app.models.facturacion):
-- LineaFactura: cantidad, precio_unitario, descuento_pct, gravada, monto.
-- Factura: subtotal, descuento_total, base_gravada, base_exenta, itbms,
-  total y portes (Numeric(14, 2)).
+Reglas del esquema del proyecto:
 
-Reglas aplicadas (pendientes de confirmar con el equipo, ver notas):
-- El monto de cada línea se calcula y se redondea por línea:
-      bruto    = cantidad * precio_unitario          (ROUND_HALF_UP a 2)
-      descuento = bruto * descuento_pct / 100        (ROUND_HALF_UP a 2)
-      monto    = bruto - descuento                   (ya con 2 decimales)
-- subtotal       = suma de los montos netos de línea.
-- descuento_total = suma de (bruto - monto) de cada línea; es informativo,
-  ya está descontado dentro de subtotal.
-- base_gravada   = suma de montos de líneas con gravada=True.
-- base_exenta    = suma de montos de líneas con gravada=False.
-- itbms          = base_gravada * 7% (ROUND_HALF_UP a 2). Solo líneas gravadas.
-- total          = base_gravada + base_exenta + itbms + portes.
+- El precio a cobrar sale del renglón: si `cobrar_por` es "caja" usamos
+  `precio_unitario` completo; si es "unidad" usamos `precio_unidad` cuando
+  viene con valor, y si no, también `precio_unitario`. No dividimos entre
+  `unidades_por_caja`: ese campo solo describe el empaque.
+- El monto de la línea se calcula en una sola operación: bruto por el factor
+  (100 - descuento) / 100, y se redondea una sola vez al final a dos
+  decimales. Nada de redondear el bruto y el descuento por separado.
+- `subtotal`: si hay descuentos mostramos la suma de los brutos y el
+  descuento aparte, para que `subtotal - descuento_total = base` cuadre al
+  centavo. Si no hay descuentos, `subtotal` es directamente la base.
+- `base_gravada` y `base_exenta` suman los montos ya redondeados de cada
+  línea; el ITBMS es 7 % solo de la base gravada.
+- `total` = base gravada + base exenta + ITBMS + portes. Los portes no
+  generan ITBMS y no pueden ser negativos.
 
-DUDAS ABIERTAS PARA EL EQUIPO:
-1. Portes: se asume que NO generan ITBMS y se suman directo al total.
-   Si el negocio grava portes, hay que mover portes a la base gravada.
-2. precio_unitario vs precio_unidad / cobrar_por / unidades_por_caja:
-   se asume que precio_unitario es el precio a cobrar por la cantidad
-   indicada y que cobrar_por solo describe el empaque (no cambia el monto).
-   Si "cobrar_por=caja" debe multiplicar por unidades_por_caja, avisar.
-3. subtotal: se toma como el neto de descuentos por línea. Si el original
-   muestra el bruto en "Subtotal" y el descuento aparte, cambiar el orden.
-
-Las validaciones de cada línea (cantidad >= 0.01, precio_unitario >= 0,
-descuento_pct entre 0 y 100) se delegan en app.utils.validators
-(ruta oficial; app.services.Validators queda solo como re-export).
-unidades_por_caja no se valida aquí: no afecta al monto y su default
-lo aplica la base de datos.
+Las validaciones de cantidad, precio, descuento y unidades por caja siguen
+viniendo de `app.utils.validators` (ruta oficial; `app.services.Validators`
+queda solo como re-export).
 """
 
 from decimal import ROUND_HALF_UP, Decimal
@@ -46,11 +33,16 @@ from app.utils.validators import (
 )
 
 CENTAVO = Decimal("0.01")
+CERO = Decimal("0.00")
+CIEN = Decimal("100")
 TASA_ITBMS = Decimal("0.07")
+
+COBRAR_POR_UNIDAD = "unidad"
+COBRAR_POR_CAJA = "caja"
 
 
 def _a_centavos(valor: Decimal) -> Decimal:
-    """Redondea a 2 decimales con ROUND_HALF_UP (regla del sistema)."""
+    """Gente, redondeo a dos decimales con ROUND_HALF_UP: el .005 siempre sube."""
     return valor.quantize(CENTAVO, rounding=ROUND_HALF_UP)
 
 
@@ -61,83 +53,124 @@ def _campo(linea: Any, nombre: str, defecto: Any = None) -> Any:
     return getattr(linea, nombre, defecto)
 
 
-def _cantidad_precio(linea: Any) -> tuple[Decimal, Decimal]:
-    """Valida cantidad y precio con las mismas reglas de Validators
-    (cantidad >= 0.01, precio >= 0) y los devuelve como Decimal.
-    No se valida unidades_por_caja aquí: no afecta al monto y su default
-    lo pone la base de datos."""
+def _datos_linea(linea: Any) -> tuple[Decimal, Decimal, Decimal, bool]:
+    """Devuelve cantidad, precio a cobrar, descuento y si es gravada.
+
+    Lanza ValueError si la línea no cumple las reglas del esquema.
+    """
     cantidad = validar_cantidad(_campo(linea, "cantidad"))
     precio = validar_precio(_campo(linea, "precio_unitario"))
-    return cantidad, precio
+
+    cobrar_por = _campo(linea, "cobrar_por", COBRAR_POR_UNIDAD)
+    if cobrar_por is None:
+        cobrar_por = COBRAR_POR_UNIDAD
+    if str(cobrar_por) != COBRAR_POR_CAJA:
+        precio_unidad = _campo(linea, "precio_unidad")
+        if precio_unidad is not None:
+            precio_unidad = validar_precio(precio_unidad, "precio_unidad")
+            if precio_unidad > CERO:
+                precio = precio_unidad
+
+    descuento_raw = _campo(linea, "descuento_pct")
+    descuento_pct = (
+        CERO if descuento_raw is None else validar_descuento_pct(descuento_raw)
+    )
+
+    gravada = _campo(linea, "gravada", True)
+    if gravada is None:
+        gravada = True
+
+    return cantidad, precio, descuento_pct, bool(gravada)
+
+
+def _bruto_exacto(linea: Any) -> Decimal:
+    """Cantidad por el precio a cobrar, todavía sin redondear."""
+    cantidad, precio, _, _ = _datos_linea(linea)
+    return cantidad * precio
+
+
+def _monto_desde_bruto(bruto: Decimal, descuento_pct: Decimal) -> Decimal:
+    """Aplica el descuento y redondea una sola vez, al final."""
+    if descuento_pct >= CIEN:
+        return CERO
+    if descuento_pct > CERO:
+        return _a_centavos(bruto * (CIEN - descuento_pct) / CIEN)
+    return _a_centavos(bruto)
 
 
 def calcular_monto_linea(linea: Any) -> Decimal:
     """Devuelve el monto neto de una línea (cantidad x precio - descuento).
 
     Acepta LineaFactura (ORM) o dict con las mismas claves.
-    Lanza ValueError si la línea no cumple las reglas del esquema.
     """
-    cantidad, precio = _cantidad_precio(linea)
-    descuento_raw = _campo(linea, "descuento_pct")
-    descuento_pct = (
-        Decimal("0") if descuento_raw is None else validar_descuento_pct(descuento_raw)
-    )
-
-    bruto = _a_centavos(cantidad * precio)
-    descuento = _a_centavos(bruto * descuento_pct / Decimal("100"))
-    return bruto - descuento
+    cantidad, precio, descuento_pct, _ = _datos_linea(linea)
+    return _monto_desde_bruto(cantidad * precio, descuento_pct)
 
 
 def calcular_bruto_linea(linea: Any) -> Decimal:
-    """Devuelve cantidad x precio_unitario sin descontar, a 2 decimales."""
-    cantidad, precio = _cantidad_precio(linea)
-    return _a_centavos(cantidad * precio)
+    """Devuelve cantidad x precio a cobrar sin descontar, a dos decimales."""
+    return _a_centavos(_bruto_exacto(linea))
 
 
 def calcular_totales(
     lineas: Iterable[Any], portes: Any = Decimal("0.00")
 ) -> dict[str, Decimal]:
-    """Calcula los 6 campos de totales de Factura a partir de sus líneas.
+    """Calcula los campos de totales de Factura a partir de sus líneas.
 
     `portes` acepta Decimal, int, float o str numérico; None cuenta como 0.
     Devuelve dict con subtotal, descuento_total, base_gravada, base_exenta,
-    itbms y total (todos Decimal con 2 decimales).
+    itbms y total (todos Decimal con dos decimales).
     """
-    subtotal = Decimal("0.00")
-    descuento_total = Decimal("0.00")
-    base_gravada = Decimal("0.00")
-    base_exenta = Decimal("0.00")
+    subtotal = CERO
+    descuento_total = CERO
+    base_gravada = CERO
+    base_exenta = CERO
+    suma_bruta = Decimal("0")
+    hay_descuentos = False
 
     for linea in lineas or []:
-        bruto = calcular_bruto_linea(linea)
-        monto = calcular_monto_linea(linea)
+        cantidad, precio, descuento_pct, gravada = _datos_linea(linea)
+        bruto = cantidad * precio
+        monto = _monto_desde_bruto(bruto, descuento_pct)
 
-        subtotal += monto
-        descuento_total += bruto - monto
+        suma_bruta += bruto
+        if descuento_pct > CERO:
+            hay_descuentos = True
 
-        gravada = _campo(linea, "gravada", True)
-        if gravada is None:
-            gravada = True
         if gravada:
             base_gravada += monto
         else:
             base_exenta += monto
 
+    base_gravada = _a_centavos(base_gravada)
+    base_exenta = _a_centavos(base_exenta)
+    base = base_gravada + base_exenta
+
+    if hay_descuentos:
+        subtotal = _a_centavos(suma_bruta)
+        descuento_total = _a_centavos(subtotal - base)
+        if descuento_total < CERO:
+            descuento_total = CERO
+    else:
+        subtotal = base
+        descuento_total = CERO
+
     itbms = _a_centavos(base_gravada * TASA_ITBMS)
 
-    portes_dec = Decimal("0.00") if portes is None else a_decimal(portes, "portes")
+    portes_dec = CERO if portes is None else a_decimal(portes, "portes")
     if portes_dec < 0:
         raise ValueError("portes no puede ser negativo")
+    portes_dec = _a_centavos(portes_dec)
 
-    total = base_gravada + base_exenta + itbms + portes_dec
+    total = _a_centavos(base + itbms + portes_dec)
 
     return {
         "subtotal": _a_centavos(subtotal),
         "descuento_total": _a_centavos(descuento_total),
-        "base_gravada": _a_centavos(base_gravada),
-        "base_exenta": _a_centavos(base_exenta),
+        "base_gravada": base_gravada,
+        "base_exenta": base_exenta,
         "itbms": itbms,
-        "total": _a_centavos(total),
+        "total": total,
     }
 
 
