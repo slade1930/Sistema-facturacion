@@ -1,40 +1,37 @@
-"""Comprobante de factura para PDF.
+"""Gente, acá armamos el comprobante de la factura y su PDF.
 
-FASE ACTUAL (sin dependencias externas en requirements.txt):
 - construir_datos_comprobante(): arma el dict estructurado con empresa,
-  folio, cliente, líneas, desglose de totales (subtotal, descuento_total,
-  base_gravada, base_exenta, itbms 7%, portes, total), total en letras
-  (services.numero_a_letras) y código de verificación opcional.
-- renderizar_texto(): versión texto plano del comprobante (depuración/preview).
-- renderizar_html(): HTML mínimo listo para convertir a PDF cuando los
-  líderes aprueben una librería.
+  folio, cliente, líneas, desglose de totales, total en letras y código de
+  verificación. Es la fuente única para el texto, el HTML y el PDF.
+- renderizar_texto(): texto plano para preview y logs.
+- renderizar_html(): HTML mínimo del comprobante.
+- generar_pdf(): el binario PDF, con reportlab, sin dependencias nuevas.
 
-DEPENDENCIA PDF PENDIENTE — pedir a los líderes UNA de estas:
-- reportlab  -> generación directa de PDF (recomendada, liviana, estable).
-- weasyprint -> HTML -> PDF (requiere GTK en Windows, más pesada).
-Mientras tanto NADA de este módulo importa esas librerías: los tests
-corren sin ellas. Cuando se apruebe, agregar `generar_pdf(datos) -> bytes`
-aquí y seguir usando construir_datos_comprobante() como fuente única.
+El código de verificación se usa tal cual si la factura ya lo trae. Si hay
+que generarlo, se llama a services.verificacion y cualquier fallo (por
+ejemplo, que falte FACTURA_HMAC_KEY) se deja subir: nada de dejarlo en "".
 
 Acepta Factura ORM, dict o cualquier objeto con los atributos del esquema.
 """
 
 from datetime import date, datetime
 from decimal import Decimal
+from html import escape
+from io import BytesIO
 from typing import Any, Mapping, Optional
+
+from reportlab.lib import colors
+from reportlab.lib.pagesizes import letter
+from reportlab.lib.styles import getSampleStyleSheet
+from reportlab.lib.units import mm
+from reportlab.platypus import Paragraph, SimpleDocTemplate, Spacer, Table, TableStyle
 
 from app.services.numero_a_letras import monto_a_letras_factura
 from app.services.totales import calcular_monto_linea, calcular_totales
+from app.services.verificacion import (
+    generar_codigo_verificacion as _generar_codigo_verificacion,
+)
 from app.utils.formatters import formato_fecha, formato_moneda
-
-# Integración con el código de verificación (HMAC) del equipo de seguridad.
-# Si el módulo no existe o falla, el comprobante sale igual con "".
-try:
-    from app.services.verificacion import (
-        generar_codigo_verificacion as _generar_codigo_verificacion,
-    )
-except Exception:  # pragma: no cover - el módulo puede no estar aún
-    _generar_codigo_verificacion = None
 
 _CAMPOS_TOTALES = (
     "subtotal",
@@ -90,20 +87,15 @@ def _resolver_codigo_verificacion(
 ) -> str:
     """Prioridad: parámetro explícito > campo persistido > HMAC generado.
 
-    La generación HMAC necesita FACTURA_HMAC_KEY en el entorno; si falta
-    (o el módulo de verificación no está disponible) devuelve "" sin fallar.
+    La generación HMAC necesita FACTURA_HMAC_KEY en el entorno. Si falla,
+    el error se propaga: acá no disfrazamos el problema con un código vacío.
     """
     if explicito:
         return explicito
     guardado = _campo(factura, "codigo_verificacion")
     if guardado:
         return str(guardado)
-    if _generar_codigo_verificacion is None:
-        return ""
-    try:
-        return _generar_codigo_verificacion(numero_serie, total, cliente_ruc or "")
-    except Exception:
-        return ""
+    return _generar_codigo_verificacion(numero_serie, total, cliente_ruc or "")
 
 
 def construir_datos_comprobante(
@@ -113,13 +105,13 @@ def construir_datos_comprobante(
     codigo_verificacion: Optional[str] = None,
     total_en_letras: Optional[str] = None,
 ) -> dict[str, Any]:
-    """Arma el dict único que alimenta texto, HTML y (futuro) PDF binario.
+    """Arma el dict único que alimenta texto, HTML y PDF binario.
 
     - configuracion: ConfiguracionNegocio ORM/dict (opcional; si falta, el
       encabezado sale con datos vacíos y el resto del comprobante igual).
     - codigo_verificacion: opcional. Prioridad: este parámetro > el campo
       persistido en la factura > HMAC generado con services.verificacion
-      (requiere FACTURA_HMAC_KEY; si falta, queda en "" sin fallar).
+      (requiere FACTURA_HMAC_KEY; si falla, el error sube).
     - total_en_letras: igual, opcional; por defecto se calcula con
       services.numero_a_letras.
     """
@@ -195,7 +187,7 @@ def construir_datos_comprobante(
 
 
 # ---------------------------------------------------------------------------
-# Renderizado (sin librerías externas)
+# Renderizado: texto, HTML y PDF
 # ---------------------------------------------------------------------------
 
 def renderizar_texto(datos: dict[str, Any]) -> str:
@@ -294,3 +286,121 @@ th, td {{ border: 1px solid #999; padding: 4px 6px; }}
 </table>
 <p><b>{datos['total_en_letras']}</b></p>
 </body></html>"""
+
+
+def generar_pdf(datos: dict[str, Any]) -> bytes:
+    """Gente, devuelve la factura en PDF listo para guardar o enviar.
+
+    Si le pasamos la factura directo, primero armamos el dict con
+    construir_datos_comprobante(). Todo lo que dibuja sale de ese dict.
+    """
+    if not isinstance(datos, Mapping) or "empresa" not in datos:
+        datos = construir_datos_comprobante(datos)
+
+    buffer = BytesIO()
+    documento = SimpleDocTemplate(
+        buffer,
+        pagesize=letter,
+        leftMargin=18 * mm,
+        rightMargin=18 * mm,
+        topMargin=16 * mm,
+        bottomMargin=16 * mm,
+        title=f"Factura {datos['numero_serie']}",
+    )
+    estilos = getSampleStyleSheet()
+    normal = estilos["Normal"]
+    normal.fontSize = 9
+    normal.leading = 12
+
+    def texto(valor: Any) -> Paragraph:
+        return Paragraph(escape(str(valor or "")), normal)
+
+    empresa = datos["empresa"]
+    cliente = datos["cliente"]
+    totales = datos["totales_fmt"]
+
+    historia = [
+        Paragraph(f"FACTURA {escape(str(datos['numero_serie']))}", estilos["Title"]),
+        Spacer(1, 4 * mm),
+        texto(empresa["nombre"] or "(empresa sin configurar)"),
+    ]
+    if empresa["ruc"]:
+        historia.append(texto(f"RUC: {empresa['ruc']}"))
+    if empresa["direccion"]:
+        historia.append(texto(empresa["direccion"]))
+    if empresa["correo"] or empresa["telefono"]:
+        historia.append(texto(f"{empresa['correo']} {empresa['telefono']}".strip()))
+    historia += [
+        Spacer(1, 3 * mm),
+        texto(
+            f"Fecha: {datos['fecha']} | Estado: {datos['estado']} | "
+            f"Verificación: {datos['codigo_verificacion']}"
+        ),
+        texto(
+            f"Cliente: {cliente['nombre']}"
+            + (f" | RUC: {cliente['ruc']}" if cliente["ruc"] and cliente["mostrar_ruc"] else "")
+        ),
+    ]
+    if cliente["direccion"]:
+        historia.append(texto(f"Dirección: {cliente['direccion']}"))
+    if cliente["telefono"] or cliente["correo"]:
+        historia.append(texto(f"Teléfono: {cliente['telefono']} | Correo: {cliente['correo']}"))
+    historia.append(Spacer(1, 4 * mm))
+
+    filas = [["#", "Descripción", "Cant.", "Precio", "Monto"]]
+    for linea in datos["lineas"]:
+        filas.append([
+            str(linea["orden"] or ""),
+            linea["descripcion"],
+            linea["cantidad_fmt"],
+            linea["precio_fmt"],
+            linea["monto_fmt"],
+        ])
+    tabla = Table(
+        filas,
+        colWidths=[10 * mm, 90 * mm, 22 * mm, 24 * mm, 26 * mm],
+        repeatRows=1,
+    )
+    tabla.setStyle(TableStyle([
+        ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#333333")),
+        ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
+        ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
+        ("FONTSIZE", (0, 0), (-1, -1), 8),
+        ("GRID", (0, 0), (-1, -1), 0.4, colors.HexColor("#999999")),
+        ("ALIGN", (2, 1), (-1, -1), "RIGHT"),
+        ("VALIGN", (0, 0), (-1, -1), "TOP"),
+        ("LEFTPADDING", (0, 0), (-1, -1), 4),
+        ("RIGHTPADDING", (0, 0), (-1, -1), 4),
+        ("TOPPADDING", (0, 0), (-1, -1), 3),
+        ("BOTTOMPADDING", (0, 0), (-1, -1), 3),
+    ]))
+    historia += [tabla, Spacer(1, 4 * mm)]
+
+    resumen = [
+        ["Subtotal", totales["subtotal"]],
+        ["Descuento", totales["descuento_total"]],
+        ["Base gravada", totales["base_gravada"]],
+        ["Base exenta", totales["base_exenta"]],
+        ["ITBMS (7%)", totales["itbms"]],
+        ["Portes", datos["portes_fmt"]],
+        ["TOTAL", totales["total"]],
+    ]
+    tabla_totales = Table(resumen, colWidths=[45 * mm, 30 * mm], hAlign="RIGHT")
+    tabla_totales.setStyle(TableStyle([
+        ("FONTSIZE", (0, 0), (-1, -1), 9),
+        ("ALIGN", (1, 0), (1, -1), "RIGHT"),
+        ("LINEABOVE", (0, -1), (-1, -1), 0.8, colors.black),
+        ("FONTNAME", (0, -1), (-1, -1), "Helvetica-Bold"),
+        ("BOTTOMPADDING", (0, 0), (-1, -1), 2),
+    ]))
+    historia += [
+        tabla_totales,
+        Spacer(1, 4 * mm),
+        Paragraph(escape(datos["total_en_letras"]), estilos["Heading2"]),
+        texto(f"Código de verificación: {datos['codigo_verificacion']}"),
+    ]
+    if datos["notas"]:
+        historia += [Spacer(1, 2 * mm), texto(f"Notas: {datos['notas']}")]
+
+    documento.build(historia)
+    return buffer.getvalue()

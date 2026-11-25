@@ -1,14 +1,13 @@
-"""Pruebas unitarias de app.services.pdf (sin librerías PDF ni base de datos).
-
-pdf.py en esta fase construye datos estructurados y renderiza texto/HTML;
-no genera binario .pdf hasta que los líderes aprueben la dependencia.
-"""
+"""Pruebas unitarias de app.services.pdf (sin base de datos)."""
 
 from datetime import date
 from decimal import Decimal
 
+import pytest
+
 from app.services.pdf import (
     construir_datos_comprobante,
+    generar_pdf,
     renderizar_html,
     renderizar_texto,
 )
@@ -67,7 +66,7 @@ class TestConstruirDatosComprobante:
         assert d["total_en_letras"] == "SON: VEINTIUN CON 40/100"
 
     def test_codigo_verificacion_como_parametro(self):
-        # El HMAC aún no existe: se puede inyectar sin romper nada.
+        # El código inyectado gana aunque no haya clave en el entorno.
         d = construir_datos_comprobante(
             _factura_dict(codigo_verificacion=None),
             codigo_verificacion="HMAC12345678",
@@ -115,12 +114,12 @@ class TestConstruirDatosComprobante:
         d = construir_datos_comprobante(factura)
         assert d["lineas"][0]["monto_fmt"] == "20.00"
 
-    def test_sin_hmac_key_el_codigo_queda_vacio_sin_fallar(self, monkeypatch):
-        # FACTURA_HMAC_KEY ausente: el comprobante se arma igual.
+    def test_sin_hmac_key_el_error_sube(self, monkeypatch):
+        # FACTURA_HMAC_KEY ausente: el error se ve, nada de código vacío.
         monkeypatch.delenv("FACTURA_HMAC_KEY", raising=False)
         factura = _factura_dict(codigo_verificacion=None)
-        d = construir_datos_comprobante(factura)
-        assert d["codigo_verificacion"] == ""
+        with pytest.raises(RuntimeError, match="FACTURA_HMAC_KEY"):
+            construir_datos_comprobante(factura)
 
     def test_con_hmac_key_genera_codigo_automatico(self, monkeypatch):
         monkeypatch.setenv("FACTURA_HMAC_KEY", "clave-de-prueba")
@@ -166,3 +165,20 @@ class TestRenderizar:
         assert "<title>Factura FAC-2026-0001</title>" in html
         assert "ITBMS (7%)" in html
         assert "Producto A" in html
+
+
+class TestGenerarPdf:
+    def test_devuelve_binario_pdf(self):
+        d = construir_datos_comprobante(_factura_dict())
+        pdf = generar_pdf(d)
+        assert pdf
+        assert pdf.startswith(b"%PDF")
+
+    def test_acepta_la_factura_directo(self):
+        pdf = generar_pdf(_factura_dict())
+        assert pdf.startswith(b"%PDF")
+
+    def test_el_error_del_codigo_no_se_traga(self, monkeypatch):
+        monkeypatch.delenv("FACTURA_HMAC_KEY", raising=False)
+        with pytest.raises(RuntimeError, match="FACTURA_HMAC_KEY"):
+            generar_pdf(_factura_dict(codigo_verificacion=None))
