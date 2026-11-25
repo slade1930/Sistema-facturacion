@@ -1,16 +1,34 @@
-"""Cálculos de pedidos B2B: precios por presentación y subtotales."""
+"""CÃ¡lculos y ciclo de facturaciÃ³n de pedidos B2B."""
+
 from dataclasses import dataclass
 from datetime import date
 from decimal import Decimal, ROUND_HALF_UP
-from enum import Enum
+
+from sqlalchemy import select
+from sqlalchemy.orm import Session, joinedload, selectinload
+
+from app.models.catalogo import (
+    EstadoPedido,
+    TipoEmpaque,
+    PedidoB2B,
+    LineaPedidoB2B,
+    Producto,
+)
+from app.models.facturacion import (
+    CobrarPor,
+    Factura,
+    LineaFactura,
+)
+from app.repositories.facturacion import (
+    FacturaRepository,
+    ContadorSerieRepository,
+)
+from app.services.totales import calcular_totales, aplicar_totales
+from app.services.verificacion import generar_codigo_verificacion
+
 
 CENTAVOS = Decimal("0.01")
 
-
-class Presentacion(str, Enum):
-    CAJA = "caja"
-    MEDIA_CAJA = "media_caja"
-    UNIDAD = "unidad"
 
 
 def redondear(valor: Decimal) -> Decimal:
@@ -18,7 +36,8 @@ def redondear(valor: Decimal) -> Decimal:
 
 
 def precio_unitario(
-    precios: dict[Presentacion, Decimal], presentacion: Presentacion
+    precios: dict[TipoEmpaque, Decimal],
+    presentacion: TipoEmpaque,
 ) -> Decimal:
     if presentacion not in precios:
         raise ValueError(f"No hay precio para {presentacion.value}")
@@ -38,7 +57,7 @@ def subtotal_pedido(subtotales_lineas: list[Decimal]) -> Decimal:
 @dataclass(frozen=True)
 class LineaPedido:
     descripcion: str
-    presentacion: Presentacion
+    presentacion: TipoEmpaque
     cantidad: int | Decimal
     precio: Decimal
     unidades_por_caja: int = 1
@@ -72,14 +91,15 @@ class ResumenPedido:
 
 def calcular_pedido(lineas: list[LineaPedido]) -> ResumenPedido:
     if not lineas:
-        raise ValueError("El pedido no tiene líneas")
-    subtotales = [l.subtotal for l in lineas]
+        raise ValueError("El pedido no tiene lÃ­neas")
+    subtotales = [linea.subtotal for linea in lineas]
     return ResumenPedido(subtotales, subtotal_pedido(subtotales))
 
 
 @dataclass(frozen=True)
 class LineaFacturaBorrador:
-    """Misma forma que LineaFacturaCreate (schemas/facturacion.py)."""
+    """Misma forma bÃ¡sica que LineaFacturaCreate."""
+
     descripcion: str
     cantidad: Decimal
     precio_unitario: Decimal
@@ -91,66 +111,111 @@ class LineaFacturaBorrador:
     producto_id: int | None
 
 
-def pedido_a_lineas_factura(lineas: list[LineaPedido]) -> list[LineaFacturaBorrador]:
+def pedido_a_lineas_factura(
+    lineas: list[LineaPedido],
+) -> list[LineaFacturaBorrador]:
     if not lineas:
-        raise ValueError("El pedido no tiene líneas")
+        raise ValueError("El pedido no tiene lÃ­neas")
+
     resultado = []
-    for l in lineas:
-        if l.presentacion == Presentacion.MEDIA_CAJA:
-            # TODO: definir con Erick y el equipo 2 cómo se factura la media caja
-            raise NotImplementedError("Media caja: pendiente de definir")
+
+    for linea in lineas:
+        es_media_caja = linea.presentacion == TipoEmpaque.MEDIA_CAJA
+        es_caja = linea.presentacion == TipoEmpaque.CAJA
+
         resultado.append(
             LineaFacturaBorrador(
-                descripcion=l.descripcion,
-                cantidad=Decimal(l.cantidad),
-                precio_unitario=l.precio,
-                precio_unidad=l.precio_unidad,
-                descuento_pct=l.descuento_pct,
-                gravada=l.gravada,
-                unidades_por_caja=l.unidades_por_caja,
-                cobrar_por=l.presentacion.value,
-                producto_id=l.producto_id,
+                descripcion=(
+                    f"Media caja - {linea.descripcion}"
+                    if es_media_caja
+                    else linea.descripcion
+                ),
+                cantidad=Decimal(linea.cantidad),
+                precio_unitario=linea.precio,
+                precio_unidad=(
+                    None
+                    if es_media_caja or es_caja
+                    else linea.precio_unidad
+                ),
+                descuento_pct=linea.descuento_pct,
+                gravada=linea.gravada,
+                unidades_por_caja=linea.unidades_por_caja,
+                cobrar_por=(
+                    CobrarPor.UNIDAD.value
+                    if es_media_caja
+                    else linea.presentacion.value
+                ),
+                producto_id=linea.producto_id,
             )
         )
+
     return resultado
 
 
-def precio_de_presentacion(producto, presentacion: Presentacion) -> Decimal:
-    """Precio del producto según cómo se vendió (caja, media caja o unidad)."""
-    if presentacion == Presentacion.CAJA:
+def precio_de_presentacion(
+    producto,
+    presentacion: TipoEmpaque,
+) -> Decimal:
+    """Obtiene el precio segÃºn la presentaciÃ³n seleccionada."""
+
+    if presentacion == TipoEmpaque.CAJA:
         return producto.precio_caja
-    if presentacion == Presentacion.UNIDAD:
+
+    if presentacion == TipoEmpaque.UNIDAD:
         return producto.precio_unidad
+
     if not producto.permite_media_caja or producto.precio_media_caja is None:
-        raise ValueError(f"'{producto.nombre}' no se vende por media caja")
+        raise ValueError(
+            f"'{producto.nombre}' no se vende por media caja"
+        )
+
     return producto.precio_media_caja
 
 
-def linea_pedido_desde_modelo(linea_modelo, producto) -> LineaPedido:
-    """Convierte LineaPedidoB2B + su Producto en una LineaPedido."""
-    valor = getattr(linea_modelo.tipo_empaque, "value", linea_modelo.tipo_empaque)
-    presentacion = Presentacion(valor)
+def linea_pedido_desde_modelo(
+    linea_modelo,
+    producto,
+) -> LineaPedido:
+    """Convierte una lÃ­nea de pedido y su producto en una LineaPedido."""
+
+    valor = getattr(
+        linea_modelo.tipo_empaque,
+        "value",
+        linea_modelo.tipo_empaque,
+    )
+    presentacion = TipoEmpaque(valor)
+
+    es_media_caja = presentacion == TipoEmpaque.MEDIA_CAJA
+    es_caja = presentacion == TipoEmpaque.CAJA
+
     return LineaPedido(
         descripcion=producto.nombre,
         presentacion=presentacion,
         cantidad=linea_modelo.cantidad,
         precio=precio_de_presentacion(producto, presentacion),
         unidades_por_caja=producto.unidades_por_caja,
-        precio_unidad=producto.precio_unidad,
+        precio_unidad=(
+            None
+            if es_media_caja or es_caja
+            else producto.precio_unidad
+        ),
         gravada=producto.aplica_itbms,
         producto_id=producto.id,
     )
 
 
-def validar_pedido_facturable(estado, factura_generada_id: int | None) -> None:
-    """Falla si el pedido ya fue facturado o está cancelado.
+def validar_pedido_facturable(
+    estado,
+    factura_generada_id: int | None,
+) -> None:
+    """Falla si el pedido ya fue facturado o estÃ¡ cancelado."""
 
-    `estado` acepta el enum EstadoPedido o su texto ("pendiente", ...).
-    """
     valor = getattr(estado, "value", estado)
-    if factura_generada_id is not None or valor == "facturado":
+
+    if factura_generada_id is not None or valor == EstadoPedido.FACTURADO.value:
         raise ValueError("El pedido ya fue facturado")
-    if valor == "cancelado":
+
+    if valor == EstadoPedido.CANCELADO.value:
         raise ValueError("Un pedido cancelado no se puede facturar")
 
 
@@ -165,8 +230,10 @@ CAMPOS_TOTALES = (
 
 
 def datos_cliente_para_factura(cliente) -> dict:
-    """Copia los datos de un ClienteB2B a los campos cliente_* de Factura."""
+    """Copia los datos del cliente B2B a los campos de la factura."""
+
     direccion = cliente.direccion
+
     return {
         "cliente_nombre": cliente.nombre_empresa,
         "cliente_ruc": cliente.ruc,
@@ -186,12 +253,16 @@ def armar_datos_factura(
     notas: str | None = None,
     portes: Decimal = Decimal("0.00"),
 ) -> dict:
-    """Arma los campos de Factura a partir del pedido ya calculado."""
-    faltan = [c for c in CAMPOS_TOTALES if c not in totales]
+    """Arma los campos de Factura a partir del pedido calculado."""
+
+    faltan = [campo for campo in CAMPOS_TOTALES if campo not in totales]
+
     if faltan:
         raise ValueError(f"Faltan totales: {', '.join(faltan)}")
+
     if len(numero_serie) > 20:
         raise ValueError("numero_serie excede 20 caracteres")
+
     if len(codigo_verificacion) > 12:
         raise ValueError("codigo_verificacion excede 12 caracteres")
 
@@ -203,11 +274,175 @@ def armar_datos_factura(
         "notas": notas,
         "portes": portes,
     }
+
     datos.update(datos_cliente_para_factura(cliente))
-    datos.update({c: totales[c] for c in CAMPOS_TOTALES})
+    datos.update({campo: totales[campo] for campo in CAMPOS_TOTALES})
+
     return datos
 
 
-# TODO (coordinar con equipo 2): totales con ITBMS (totales.py), numeración
-#  FAC/OC (serie.py) y código de verificación HMAC; guardar con
-#  FacturaRepository.crear(db, factura, lineas, commit=False).
+def facturar_pedido_b2b(
+    db: Session,
+    pedido_id: int,
+) -> Factura:
+    """Genera una factura a partir de un pedido B2B.
+
+    No realiza commit. La transacciÃ³n queda bajo el control del llamador.
+    """
+
+    pedido = db.scalar(
+        select(PedidoB2B)
+        .where(PedidoB2B.id == pedido_id)
+        .with_for_update()
+    )
+
+    if pedido is None:
+        raise ValueError(
+            f"No existe el pedido B2B con ID {pedido_id}"
+        )
+
+    validar_pedido_facturable(
+        pedido.estado,
+        pedido.factura_generada_id,
+    )
+
+    # Cargar las relaciones necesarias despuÃ©s de bloquear el pedido.
+    pedido = db.scalar(
+        select(PedidoB2B)
+        .options(
+            joinedload(PedidoB2B.cliente),
+            selectinload(PedidoB2B.lineas)
+            .joinedload(LineaPedidoB2B.producto)
+            .joinedload(Producto.categoria),
+        )
+        .where(PedidoB2B.id == pedido_id)
+    )
+
+    if pedido is None:
+        raise ValueError(
+            f"No existe el pedido B2B con ID {pedido_id}"
+        )
+
+    validar_pedido_facturable(
+        pedido.estado,
+        pedido.factura_generada_id,
+    )
+
+    if pedido.cliente is None:
+        raise ValueError("El pedido no tiene un cliente asociado")
+
+    if not pedido.lineas:
+        raise ValueError("El pedido no tiene lÃ­neas para facturar")
+
+    lineas_factura = []
+
+    for linea_modelo in pedido.lineas:
+        producto = linea_modelo.producto
+
+        if producto is None:
+            raise ValueError(
+                f"La lÃ­nea {linea_modelo.id} no tiene un producto asociado"
+            )
+
+        linea_convertida = linea_pedido_desde_modelo(
+            linea_modelo,
+            producto,
+        )
+
+        es_media_caja = (
+            linea_convertida.presentacion == TipoEmpaque.MEDIA_CAJA
+        )
+
+        es_caja = (
+            linea_convertida.presentacion == TipoEmpaque.CAJA
+        )
+            # MEDIA_CAJA se registra como UNIDAD porque CobrarPor
+            # solo admite CAJA o UNIDAD. Se conserva la cantidad de
+            # medias cajas y se utiliza precio_media_caja como precio.
+        cobrar_por = (
+            CobrarPor.CAJA
+            if es_caja
+            else CobrarPor.UNIDAD
+        )
+
+        categoria = (
+            producto.categoria.nombre
+            if producto.categoria is not None
+            else None
+        )
+
+        linea_factura = LineaFactura(
+            orden=linea_modelo.orden,
+            descripcion=(
+                f"Media caja - {producto.nombre}"
+                if es_media_caja
+                else producto.nombre
+            ),
+            codigo_barras=producto.codigo_barras,
+            categoria=categoria,
+            cantidad=Decimal(linea_modelo.cantidad),
+            precio_unitario=linea_convertida.precio,
+            precio_unidad=(
+                None
+                if es_media_caja or es_caja
+                else linea_convertida.precio_unidad
+            ),
+            descuento_pct=Decimal("0.00"),
+            gravada=linea_convertida.gravada,
+            unidades_por_caja=linea_convertida.unidades_por_caja,
+            cobrar_por=cobrar_por,
+            monto=None,
+            producto_id=producto.id,
+        )
+
+        lineas_factura.append(linea_factura)
+
+    fecha = date.today()
+    portes = Decimal("0.00")
+
+    numero_serie = ContadorSerieRepository.obtener_siguiente_numero(
+        db,
+        fecha.year,
+    )
+
+    totales = calcular_totales(
+        lineas_factura,
+        portes=portes,
+    )
+
+    codigo_verificacion = generar_codigo_verificacion(
+        numero_serie,
+        totales["total"],
+        pedido.cliente.ruc or "",
+    )
+
+    datos_factura = armar_datos_factura(
+        cliente=pedido.cliente,
+        totales=totales,
+        numero_serie=numero_serie,
+        codigo_verificacion=codigo_verificacion,
+        fecha=fecha,
+        notas=pedido.notas,
+        portes=portes,
+    )
+
+    factura = Factura(**datos_factura)
+
+    # Asignar las lÃ­neas antes de aplicar los totales.
+    factura.lineas = lineas_factura
+    aplicar_totales(factura)
+
+    # Se guarda con flush, sin confirmar la transacciÃ³n.
+    FacturaRepository.crear(
+        db,
+        factura,
+        lineas_factura,
+        commit=False,
+    )
+
+    pedido.factura_generada_id = factura.id
+    pedido.estado = EstadoPedido.FACTURADO
+
+    db.flush()
+
+    return factura
