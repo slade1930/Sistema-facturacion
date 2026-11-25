@@ -1,16 +1,22 @@
-from datetime import date, datetime, timezone
-from typing import Optional
+from datetime import date
+from typing import Optional, Union
 
 from sqlalchemy import select
 from sqlalchemy.orm import Session, selectinload
 
 from app.models.facturacion import (
     ConfiguracionNegocio,
-    ContadorSerie,
     EstadoFactura,
     Factura,
     LineaFactura,
 )
+from app.schemas.facturacion import (
+    ConfiguracionNegocioBase,
+    ConfiguracionNegocioUpdate,
+)
+from app.services.ciclo_vida import anular_factura
+from app.services.serie import siguiente_numero_factura
+from app.services.verificacion import validar_codigo_verificacion
 
 
 class FacturaRepository:
@@ -60,15 +66,20 @@ class FacturaRepository:
     def verificar(
         db: Session, numero_serie: str, codigo_verificacion: str
     ) -> Optional[Factura]:
-        stmt = (
-            select(Factura)
-            .options(selectinload(Factura.lineas))
-            .where(
-                Factura.numero_serie == numero_serie,
-                Factura.codigo_verificacion == codigo_verificacion,
-            )
+        factura = FacturaRepository.obtener_por_numero_serie(db, numero_serie)
+        if factura is None:
+            return None
+
+        es_valido = validar_codigo_verificacion(
+            codigo_verificacion,
+            factura.numero_serie,
+            factura.total,
+            factura.cliente_ruc or "",
         )
-        return db.scalars(stmt).first()
+        if not es_valido:
+            return None
+
+        return factura
 
     @staticmethod
     def listar(
@@ -103,10 +114,8 @@ class FacturaRepository:
     def anular(
         db: Session, factura: Factura, *, commit: bool = True
     ) -> Factura:
-        # Regla del modelo: nunca se borra la factura y fecha_anulacion es obligatoria.
-        factura.estado = EstadoFactura.ANULADA
-        if factura.fecha_anulacion is None:
-            factura.fecha_anulacion = datetime.now(timezone.utc)
+        # Delega en ciclo_vida.anular_factura (lanza FacturaYaAnuladaError si ya está anulada).
+        anular_factura(factura)
 
         if commit:
             db.commit()
@@ -118,29 +127,9 @@ class FacturaRepository:
 
 class ContadorSerieRepository:
     @staticmethod
-    def obtener_siguiente_numero(
-        db: Session, anio: int, *, commit: bool = False
-    ) -> int:
-        stmt = (
-            select(ContadorSerie)
-            .where(ContadorSerie.anio == anio)
-            .with_for_update()
-        )
-        contador = db.scalars(stmt).first()
-
-        if contador is None:
-            contador = ContadorSerie(anio=anio, ultimo_numero=1)
-            db.add(contador)
-        else:
-            contador.ultimo_numero += 1
-
-        if commit:
-            db.commit()
-            db.refresh(contador)
-        else:
-            db.flush()
-
-        return contador.ultimo_numero
+    def obtener_siguiente_numero(db: Session, anio: int) -> str:
+        # Delega en app.services.serie (usa upsert atómico + FOR UPDATE y flush).
+        return siguiente_numero_factura(db, anio)
 
 
 class ConfiguracionNegocioRepository:
@@ -151,15 +140,24 @@ class ConfiguracionNegocioRepository:
 
     @staticmethod
     def guardar_o_actualizar(
-        db: Session, datos: dict, *, commit: bool = True
+        db: Session,
+        datos: Union[ConfiguracionNegocioUpdate, ConfiguracionNegocioBase],
+        *,
+        commit: bool = True,
     ) -> ConfiguracionNegocio:
+        payload = datos.model_dump(exclude_unset=True)
         config = ConfiguracionNegocioRepository.obtener(db)
 
         if config is None:
-            config = ConfiguracionNegocio(**datos)
+            if not payload.get("empresa_nombre") or not payload.get("empresa_ruc"):
+                raise ValueError(
+                    "Para crear la configuración inicial se requieren "
+                    "empresa_nombre y empresa_ruc."
+                )
+            config = ConfiguracionNegocio(**payload)
             db.add(config)
         else:
-            for campo, valor in datos.items():
+            for campo, valor in payload.items():
                 setattr(config, campo, valor)
 
         if commit:
