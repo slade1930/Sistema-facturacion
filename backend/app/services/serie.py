@@ -6,7 +6,7 @@ así que los números de factura y de OC nunca se mezclan.
 Solo hace flush(), nunca commit: el número queda reservado dentro de la
 transacción del documento y se libera si la factura/pedido hace rollback.
 
-PUNTOS DE COORDINACIÓN PENDIENTES (no resolver aquí, avisar al equipo):
+PUNTOS DE COORDINACIÓN (no resolver aquí, avisar al equipo):
 1. Validadores: la ruta oficial unificada es app/utils/validators.py.
    app/services/Validators.py quedó solo como re-export de
    compatibilidad; importar siempre desde app.utils.validators.
@@ -18,8 +18,9 @@ PUNTOS DE COORDINACIÓN PENDIENTES (no resolver aquí, avisar al equipo):
    delegue aquí).
 3. codigo_verificacion: Factura.codigo_verificacion es String(12)
    obligatorio y NO unique. Este servicio solo genera numero_serie;
-   la generación del código (HMAC u otra regla) queda pendiente con el
-   compañero de seguridad/reglas y el equipo de api.
+   el código ya se genera en app/services/verificacion.py con HMAC-SHA256
+   (FACTURA_HMAC_KEY del entorno) y pdf.py lo resuelve al armar el
+   comprobante. Si la factura ya trae código, se usa ese.
 """
 
 from sqlalchemy import select
