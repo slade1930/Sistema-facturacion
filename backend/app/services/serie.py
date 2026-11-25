@@ -7,9 +7,9 @@ Solo hace flush(), nunca commit: el número queda reservado dentro de la
 transacción del documento y se libera si la factura/pedido hace rollback.
 
 PUNTOS DE COORDINACIÓN PENDIENTES (no resolver aquí, avisar al equipo):
-1. Validadores: existe app/services/Validators.py (implementado) y el
-   placeholder vacío app/utils/validators.py. Confirmar cuál es la ruta
-   oficial para que ningún import se rompa si renombran/mueven el módulo.
+1. Validadores: la ruta oficial unificada es app/utils/validators.py.
+   app/services/Validators.py quedó solo como re-export de
+   compatibilidad; importar siempre desde app.utils.validators.
 2. Duplicidad: el equipo de catálogo tiene ContadorSerieRepository
    (repositories/facturacion.py) con su propio SELECT ... FOR UPDATE.
    Este servicio usa upsert ON CONFLICT DO NOTHING + FOR UPDATE, que es
