@@ -240,6 +240,7 @@ class TestNumeroALetras:
         assert numero_a_letras.monto_a_letras_factura(Decimal("1234.56")) == (
             "SON: MIL DOSCIENTOS TREINTA Y CUATRO CON 56/100"
         )
-        assert numero_a_letras.monto_a_letras_factura(Decimal("10"), "USD") == (
-            "USD: DIEZ CON 00/100"
+        # El prefijo es fijo "SON:" en la firma actual de monto_a_letras_factura
+        assert numero_a_letras.monto_a_letras_factura(Decimal("10")) == (
+            "SON: DIEZ CON 00/100"
         )

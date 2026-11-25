@@ -82,8 +82,9 @@ class TestMontoALetrasFactura:
             "SON: MIL DOSCIENTOS TREINTA Y CUATRO CON 56/100"
         )
 
-    def test_prefijo_personalizado(self):
-        assert monto_a_letras_factura(10, prefijo="DOP").startswith("DOP:")
+    def test_prefijo_fijo_son(self):
+        # La firma actual usa prefijo fijo "SON:" (sin parámetro prefijo)
+        assert monto_a_letras_factura(10) == "SON: DIEZ CON 00/100"
 
     def test_cero(self):
         assert monto_a_letras_factura(0) == "SON: CERO CON 00/100"
