@@ -52,14 +52,14 @@ def calcular_carrito(datos: CarritoCalcularRequest, db: Session = Depends(get_db
             )
         if not producto.estado_activo:
             raise HTTPException(
-                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                status_code=422,
                 detail=f"El producto '{producto.nombre}' no está activo.",
             )
         try:
             precio = precio_de_presentacion(producto, item.tipo_empaque)
         except ValueError as exc:
             raise HTTPException(
-                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                status_code=422,
                 detail=str(exc),
             ) from exc
 

@@ -53,6 +53,6 @@ def actualizar_configuracion(
         db.rollback()
 
         raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            status_code=422,
             detail=str(exc),
         ) from exc

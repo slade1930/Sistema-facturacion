@@ -104,7 +104,7 @@ def facturar_pedido(pedido_id: int, db: Session = Depends(get_db)):
         factura = facturar_pedido_b2b(db, pedido_id)
     except ValueError as exc:
         raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            status_code=422,
             detail=str(exc),
         ) from exc
 
