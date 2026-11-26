@@ -13,25 +13,24 @@ git checkout desarrollo
 cp .env.example .env
 # Edita el archivo .env y define API_KEY y FACTURA_HMAC_KEY con tus propios valores
 docker compose up --build
-
-Healthcheck: http://localhost:8000/health (debe devolver {"status":"ok"})
-
-Swagger UI: http://localhost:8000/docs
+```
+* Healthcheck: http://localhost:8000/health (debe devolver {"status":"ok"})
+* Swagger UI: http://localhost:8000/docs
 
 Nota: Para más detalles sobre la instalación, consulta la guía de despliegue.
 
 Tecnologías
-Backend: Python 3.12, FastAPI, SQLAlchemy, Alembic.
-Frontend: NiceGUI.
-Base de Datos: PostgreSQL.
-Infraestructura: Docker, Docker Compose.
-Pruebas: Pytest.
-PDF: Reportlab.
-Documentación
+* Backend: Python 3.12, FastAPI, SQLAlchemy, Alembic.
+* Frontend: NiceGUI.
+* Base de Datos: PostgreSQL.
+* Infraestructura: Docker, Docker Compose.
+* Pruebas: Pytest.
+* PDF: Reportlab.
+* Documentación
 
 Toda la documentación técnica detallada se encuentra en la carpeta docs/:
-Arquitectura del sistema
-Base de datos y esquema
-Reglas de negocio
-Estructura del proyecto y ramas
-Tecnologías y versiones
+* Arquitectura del sistema
+* Base de datos y esquema
+* Reglas de negocio
+* Estructura del proyecto y ramas
+* Tecnologías y versiones
