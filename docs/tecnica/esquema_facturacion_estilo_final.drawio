@@ -1,0 +1,136 @@
+<mxfile host="Electron" agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) draw.io/28.1.2 Chrome/138.0.7204.243 Electron/37.4.0 Safari/537.36" version="28.1.2">
+  <diagram id="facturacion-estilo-final" name="Modelo de datos">
+    <mxGraphModel dx="1482" dy="1966" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1650" pageHeight="1100" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+        <mxCell id="title" value="Modelo de datos — Sistema de Facturación y Gestión B2B" style="text;html=1;align=center;verticalAlign=middle;fontSize=22;fontStyle=1;fontColor=#17365d;" parent="1" vertex="1">
+          <mxGeometry x="200" y="-190" width="1120" height="30" as="geometry" />
+        </mxCell>
+        <mxCell id="tbl2" value="configuracion_negocio" style="swimlane;fontStyle=0;childLayout=stackLayout;horizontal=1;startSize=30;fillColor=#a20025;fontColor=#ffffff;strokeColor=#666666;horizontalStack=0;resizeParent=1;resizeParentMax=0;resizeLast=0;collapsible=0;marginBottom=0;whiteSpace=wrap;html=1;" parent="1" vertex="1">
+          <mxGeometry x="130" y="-170" width="235" height="250" as="geometry" />
+        </mxCell>
+        <mxCell id="attrs2" value="&lt;span&gt;+id: BIGINT&lt;br&gt;+empresa_nombre: VARCHAR(150)&lt;br&gt;+empresa_ruc: VARCHAR(40)&lt;br&gt;+mostrar_ruc: BOOLEAN&lt;br&gt;+empresa_direccion: TEXT&lt;br&gt;+empresa_correo: VARCHAR(254)&lt;br&gt;+empresa_telefono: VARCHAR(60)&lt;br&gt;+logo: VARCHAR(100)&lt;br&gt;+color_principal: VARCHAR(7)&lt;br&gt;+color_barra_factura: VARCHAR(7)&lt;br&gt;+color_tabla: VARCHAR(7)&lt;br&gt;+datos_bancarios: TEXT&lt;br&gt;+notas_predeterminadas: TEXT&lt;br&gt;+actualizado: TIMESTAMPTZ&lt;/span&gt;" style="text;strokeColor=#666666;fillColor=#f5f5f5;align=left;verticalAlign=top;spacingLeft=7;spacingRight=4;spacingTop=5;overflow=hidden;whiteSpace=wrap;html=1;fontSize=11;fontColor=#333333;" parent="tbl2" vertex="1">
+          <mxGeometry y="30" width="235" height="220" as="geometry" />
+        </mxCell>
+        <mxCell id="tbl3" value="contador_serie" style="swimlane;fontStyle=0;childLayout=stackLayout;horizontal=1;startSize=30;fillColor=#60a917;fontColor=#ffffff;strokeColor=#666666;horizontalStack=0;resizeParent=1;resizeParentMax=0;resizeLast=0;collapsible=0;marginBottom=0;whiteSpace=wrap;html=1;" parent="1" vertex="1">
+          <mxGeometry x="410" y="-120" width="205" height="98" as="geometry" />
+        </mxCell>
+        <mxCell id="attrs3" value="&lt;span&gt;&lt;font style=&quot;color: rgb(4, 4, 4);&quot;&gt;+id: BIGINT&lt;br&gt;+anio: INTEGER&lt;br&gt;+ultimo_numero: INTEGER&lt;/font&gt;&lt;/span&gt;" style="text;strokeColor=#A50040;fillColor=#d80073;align=left;verticalAlign=top;spacingLeft=7;spacingRight=4;spacingTop=5;overflow=hidden;whiteSpace=wrap;html=1;fontSize=11;fontColor=#ffffff;" parent="tbl3" vertex="1">
+          <mxGeometry y="30" width="205" height="68" as="geometry" />
+        </mxCell>
+        <mxCell id="tbl4" value="contador_orden_compra" style="swimlane;fontStyle=0;childLayout=stackLayout;horizontal=1;startSize=30;fillColor=#60a917;fontColor=#ffffff;strokeColor=#666666;horizontalStack=0;resizeParent=1;resizeParentMax=0;resizeLast=0;collapsible=0;marginBottom=0;whiteSpace=wrap;html=1;" parent="1" vertex="1">
+          <mxGeometry x="650" y="-126" width="230" height="98" as="geometry" />
+        </mxCell>
+        <mxCell id="attrs4" value="&lt;span&gt;&lt;font style=&quot;color: rgb(4, 4, 4);&quot;&gt;+id: BIGINT&lt;br&gt;+anio: INTEGER&lt;br&gt;+ultimo_numero: INTEGER&lt;/font&gt;&lt;/span&gt;" style="text;strokeColor=#666666;fillColor=#ffffff;align=left;verticalAlign=top;spacingLeft=7;spacingRight=4;spacingTop=5;overflow=hidden;whiteSpace=wrap;html=1;fontSize=11;" parent="tbl4" vertex="1">
+          <mxGeometry y="30" width="230" height="68" as="geometry" />
+        </mxCell>
+        <mxCell id="tbl5" value="factura" style="swimlane;fontStyle=0;childLayout=stackLayout;horizontal=1;startSize=30;fillColor=#d80073;fontColor=#ffffff;strokeColor=#666666;horizontalStack=0;resizeParent=1;resizeParentMax=0;resizeLast=0;collapsible=0;marginBottom=0;whiteSpace=wrap;html=1;" parent="1" vertex="1">
+          <mxGeometry x="1260" y="-126" width="270" height="400" as="geometry" />
+        </mxCell>
+        <mxCell id="attrs5" value="&lt;span&gt;&lt;font style=&quot;color: rgb(4, 4, 4);&quot;&gt;+id: BIGINT&lt;br&gt;+numero_serie: VARCHAR(20)&lt;br&gt;+codigo_verificacion: VARCHAR(12)&lt;br&gt;+fecha: DATE&lt;br&gt;+cliente_nombre: VARCHAR(200)&lt;br&gt;+cliente_ruc: VARCHAR(40)&lt;br&gt;+mostrar_ruc: BOOLEAN&lt;br&gt;+cliente_direccion: VARCHAR(250)&lt;br&gt;+cliente_telefono: VARCHAR(60)&lt;br&gt;+cliente_correo: VARCHAR(254)&lt;br&gt;+sucursal: VARCHAR(150)&lt;br&gt;+vendedor: VARCHAR(150)&lt;br&gt;+orden_compra: VARCHAR(60)&lt;br&gt;+condicion_pago: ENUM&lt;br&gt;+portes: NUMERIC(14,2)&lt;br&gt;+notas: TEXT&lt;br&gt;+subtotal: NUMERIC(14,2)&lt;br&gt;+descuento_total: NUMERIC(14,2)&lt;br&gt;+base_gravada: NUMERIC(14,2)&lt;br&gt;+base_exenta: NUMERIC(14,2)&lt;br&gt;+itbms: NUMERIC(14,2)&lt;br&gt;+total: NUMERIC(14,2)&lt;br&gt;+estado: ENUM&lt;br&gt;+fecha_creacion: TIMESTAMPTZ&lt;br&gt;+fecha_anulacion: TIMESTAMPTZ&lt;/font&gt;&lt;/span&gt;" style="text;strokeColor=#666666;fillColor=#ffffff;align=left;verticalAlign=top;spacingLeft=7;spacingRight=4;spacingTop=5;overflow=hidden;whiteSpace=wrap;html=1;fontSize=11;" parent="tbl5" vertex="1">
+          <mxGeometry y="30" width="270" height="370" as="geometry" />
+        </mxCell>
+        <mxCell id="tbl6" value="linea_factura" style="swimlane;fontStyle=0;childLayout=stackLayout;horizontal=1;startSize=30;fillColor=#d80073;fontColor=#ffffff;strokeColor=#666666;horizontalStack=0;resizeParent=1;resizeParentMax=0;resizeLast=0;collapsible=0;marginBottom=0;whiteSpace=wrap;html=1;" parent="1" vertex="1">
+          <mxGeometry x="1220" y="425" width="235" height="250" as="geometry" />
+        </mxCell>
+        <mxCell id="attrs6" value="&lt;span&gt;&lt;font style=&quot;color: rgb(4, 4, 4);&quot;&gt;+id: BIGINT&lt;br&gt;+factura_id: BIGINT&lt;br&gt;+orden: INTEGER&lt;br&gt;+descripcion: VARCHAR(300)&lt;br&gt;+codigo_barras: VARCHAR(100)&lt;br&gt;+categoria: VARCHAR(120)&lt;br&gt;+cantidad: NUMERIC(14,2)&lt;br&gt;+precio_unitario: NUMERIC(14,2)&lt;br&gt;+precio_unidad: NUMERIC(14,2)&lt;br&gt;+descuento_pct: NUMERIC(6,2)&lt;br&gt;+gravada: BOOLEAN&lt;br&gt;+unidades_por_caja: INTEGER&lt;br&gt;+cobrar_por: ENUM&lt;br&gt;+monto: NUMERIC(14,2)&lt;br&gt;+producto_id: BIGINT&lt;/font&gt;&lt;/span&gt;" style="text;strokeColor=#666666;fillColor=#ffffff;align=left;verticalAlign=top;spacingLeft=7;spacingRight=4;spacingTop=5;overflow=hidden;whiteSpace=wrap;html=1;fontSize=11;" parent="tbl6" vertex="1">
+          <mxGeometry y="30" width="235" height="220" as="geometry" />
+        </mxCell>
+        <mxCell id="tbl7" value="categoria" style="swimlane;fontStyle=0;childLayout=stackLayout;horizontal=1;startSize=30;fillColor=#60a917;fontColor=#ffffff;strokeColor=#2D7600;horizontalStack=0;resizeParent=1;resizeParentMax=0;resizeLast=0;collapsible=0;marginBottom=0;whiteSpace=wrap;html=1;" parent="1" vertex="1">
+          <mxGeometry x="932.5" y="-126" width="190" height="76" as="geometry" />
+        </mxCell>
+        <mxCell id="attrs7" value="&lt;span&gt;&lt;font style=&quot;color: rgb(4, 4, 4);&quot;&gt;+id: BIGINT&lt;br&gt;+nombre: VARCHAR(100)&lt;/font&gt;&lt;/span&gt;" style="text;strokeColor=#666666;fillColor=#ffffff;align=left;verticalAlign=top;spacingLeft=7;spacingRight=4;spacingTop=5;overflow=hidden;whiteSpace=wrap;html=1;fontSize=11;" parent="tbl7" vertex="1">
+          <mxGeometry y="30" width="190" height="46" as="geometry" />
+        </mxCell>
+        <mxCell id="tbl8" value="producto" style="swimlane;fontStyle=0;childLayout=stackLayout;horizontal=1;startSize=30;fillColor=#00a3a3;fontColor=#ffffff;strokeColor=#666666;horizontalStack=0;resizeParent=1;resizeParentMax=0;resizeLast=0;collapsible=0;marginBottom=0;whiteSpace=wrap;html=1;" parent="1" vertex="1">
+          <mxGeometry x="887.5" y="250" width="235" height="270" as="geometry" />
+        </mxCell>
+        <mxCell id="attrs8" value="&lt;font style=&quot;color: rgb(4, 4, 4);&quot;&gt;+id: BIGINT&lt;br&gt;+categoria_id: BIGINT&lt;br&gt;+nombre: VARCHAR(200)&lt;br&gt;+sku: VARCHAR(50)&lt;br&gt;+codigo_barras: VARCHAR(50)&lt;br&gt;+descripcion_corta: VARCHAR(500)&lt;br&gt;+imagen: VARCHAR(100)&lt;br&gt;+precio_caja: NUMERIC(14,2)&lt;br&gt;+precio_media_caja: NUMERIC(14,2)&lt;br&gt;+permite_media_caja: BOOLEAN&lt;br&gt;+precio_unidad: NUMERIC(14,2)&lt;br&gt;+precio_consumidor: NUMERIC(10,2)&lt;br&gt;+unidades_por_caja: INTEGER&lt;br&gt;+aplica_itbms: BOOLEAN&lt;br&gt;+estado_activo: BOOLEAN&lt;br&gt;+fecha_creacion: TIMESTAMPTZ&lt;br&gt;+fecha_actualizacion: TIMESTAMPTZ&lt;/font&gt;" style="text;strokeColor=#666666;fillColor=#ffffff;align=left;verticalAlign=top;spacingLeft=7;spacingRight=4;spacingTop=5;overflow=hidden;whiteSpace=wrap;html=1;fontSize=11;" parent="tbl8" vertex="1">
+          <mxGeometry y="30" width="235" height="240" as="geometry" />
+        </mxCell>
+        <mxCell id="tbl9" value="cliente_b2b" style="swimlane;fontStyle=0;childLayout=stackLayout;horizontal=1;startSize=30;fillColor=#7e57c2;fontColor=#ffffff;strokeColor=#666666;horizontalStack=0;resizeParent=1;resizeParentMax=0;resizeLast=0;collapsible=0;marginBottom=0;whiteSpace=wrap;html=1;" parent="1" vertex="1">
+          <mxGeometry x="327.5" y="470" width="230" height="160" as="geometry" />
+        </mxCell>
+        <mxCell id="attrs9" value="&lt;span&gt;&lt;font style=&quot;color: rgb(4, 4, 4);&quot;&gt;+id: BIGINT&lt;br&gt;+nombre_empresa: VARCHAR(200)&lt;br&gt;+ruc: VARCHAR(40)&lt;br&gt;+email_contacto: VARCHAR(254)&lt;br&gt;+telefono: VARCHAR(60)&lt;br&gt;+direccion: TEXT&lt;br&gt;+fecha_registro: TIMESTAMPTZ&lt;br&gt;+activo: BOOLEAN&lt;/font&gt;&lt;/span&gt;" style="text;strokeColor=#666666;fillColor=#ffffff;align=left;verticalAlign=top;spacingLeft=7;spacingRight=4;spacingTop=5;overflow=hidden;whiteSpace=wrap;html=1;fontSize=11;" parent="tbl9" vertex="1">
+          <mxGeometry y="30" width="230" height="130" as="geometry" />
+        </mxCell>
+        <mxCell id="tbl10" value="pedido_b2b" style="swimlane;fontStyle=0;childLayout=stackLayout;horizontal=1;startSize=30;fillColor=#7e57c2;fontColor=#ffffff;strokeColor=#666666;horizontalStack=0;resizeParent=1;resizeParentMax=0;resizeLast=0;collapsible=0;marginBottom=0;whiteSpace=wrap;html=1;" parent="1" vertex="1">
+          <mxGeometry x="325" y="100" width="235" height="160" as="geometry" />
+        </mxCell>
+        <mxCell id="attrs10" value="&lt;span&gt;&lt;font style=&quot;color: rgb(4, 4, 4);&quot;&gt;+id: BIGINT&lt;br&gt;+cliente_id: BIGINT&lt;br&gt;+fecha_creacion: TIMESTAMPTZ&lt;br&gt;+fecha_actualizacion: TIMESTAMPTZ&lt;br&gt;+estado: ENUM&lt;br&gt;+total_estimado: NUMERIC(14,2)&lt;br&gt;+notas: TEXT&lt;br&gt;+factura_generada_id: BIGINT&lt;/font&gt;&lt;/span&gt;" style="text;strokeColor=#666666;fillColor=#ffffff;align=left;verticalAlign=top;spacingLeft=7;spacingRight=4;spacingTop=5;overflow=hidden;whiteSpace=wrap;html=1;fontSize=11;" parent="tbl10" vertex="1">
+          <mxGeometry y="30" width="235" height="130" as="geometry" />
+        </mxCell>
+        <mxCell id="tbl11" value="linea_pedido_b2b" style="swimlane;fontStyle=0;childLayout=stackLayout;horizontal=1;startSize=30;fillColor=#7e57c2;fontColor=#ffffff;strokeColor=#666666;horizontalStack=0;resizeParent=1;resizeParentMax=0;resizeLast=0;collapsible=0;marginBottom=0;whiteSpace=wrap;html=1;" parent="1" vertex="1">
+          <mxGeometry x="600" y="465" width="235" height="150" as="geometry" />
+        </mxCell>
+        <mxCell id="attrs11" value="&lt;span&gt;&lt;font style=&quot;color: rgb(4, 4, 4);&quot;&gt;+id: BIGINT&lt;br&gt;+pedido_id: BIGINT&lt;br&gt;+producto_id: BIGINT&lt;br&gt;+tipo_empaque: ENUM&lt;br&gt;+cantidad: NUMERIC(14,2)&lt;br&gt;+subtotal: NUMERIC(14,2)&lt;br&gt;+orden: INTEGER&lt;/font&gt;&lt;/span&gt;" style="text;strokeColor=#666666;fillColor=#ffffff;align=left;verticalAlign=top;spacingLeft=7;spacingRight=4;spacingTop=5;overflow=hidden;whiteSpace=wrap;html=1;fontSize=11;" parent="tbl11" vertex="1">
+          <mxGeometry y="30" width="235" height="120" as="geometry" />
+        </mxCell>
+        <mxCell id="rel1" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#666666;strokeWidth=1.5;endArrow=ERone;startArrow=ERone;" parent="1" source="tbl5" target="tbl6" edge="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="rel1a" value="1" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];fontSize=10;" parent="rel1" vertex="1" connectable="0">
+          <mxGeometry x="-0.8" y="-10" relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="rel1b" value="N" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];fontSize=10;" parent="rel1" vertex="1" connectable="0">
+          <mxGeometry x="0.8" y="10" relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="rel2" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#666666;strokeWidth=1.5;endArrow=ERone;startArrow=ERone;" parent="1" source="tbl8" target="tbl6" edge="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="rel2a" value="1" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];fontSize=10;" parent="rel2" vertex="1" connectable="0">
+          <mxGeometry x="-0.8" y="-10" relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="rel2b" value="N" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];fontSize=10;" parent="rel2" vertex="1" connectable="0">
+          <mxGeometry x="0.8" y="10" relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="rel3" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#666666;strokeWidth=1.5;endArrow=ERone;startArrow=ERone;" parent="1" source="tbl7" target="tbl8" edge="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="rel3a" value="1" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];fontSize=10;" parent="rel3" vertex="1" connectable="0">
+          <mxGeometry x="-0.8" y="-10" relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="rel3b" value="N" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];fontSize=10;" parent="rel3" vertex="1" connectable="0">
+          <mxGeometry x="0.8" y="10" relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="rel4" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#666666;strokeWidth=1.5;endArrow=ERone;startArrow=ERone;" parent="1" source="tbl9" target="tbl10" edge="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="rel4a" value="1" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];fontSize=10;" parent="rel4" vertex="1" connectable="0">
+          <mxGeometry x="-0.8" y="-10" relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="rel4b" value="N" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];fontSize=10;" parent="rel4" vertex="1" connectable="0">
+          <mxGeometry x="0.8" y="10" relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="rel5" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#666666;strokeWidth=1.5;endArrow=ERone;startArrow=ERone;" parent="1" source="tbl10" target="tbl11" edge="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="rel5a" value="1" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];fontSize=10;" parent="rel5" vertex="1" connectable="0">
+          <mxGeometry x="-0.8" y="-10" relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="rel5b" value="N" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];fontSize=10;" parent="rel5" vertex="1" connectable="0">
+          <mxGeometry x="0.8" y="10" relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="rel6" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#666666;strokeWidth=1.5;endArrow=ERone;startArrow=ERone;" parent="1" source="tbl8" target="tbl11" edge="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="rel6a" value="1" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];fontSize=10;" parent="rel6" vertex="1" connectable="0">
+          <mxGeometry x="-0.8" y="-10" relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="rel6b" value="N" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];fontSize=10;" parent="rel6" vertex="1" connectable="0">
+          <mxGeometry x="0.8" y="10" relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="rel7" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#666666;strokeWidth=1.5;endArrow=ERone;startArrow=ERone;" parent="1" source="tbl5" target="tbl10" edge="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="rel7a" value="0..1" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];fontSize=10;" parent="rel7" vertex="1" connectable="0">
+          <mxGeometry x="-0.8" y="-10" relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="rel7b" value="N" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];fontSize=10;" parent="rel7" vertex="1" connectable="0">
+          <mxGeometry x="0.8" y="10" relative="1" as="geometry" />
+        </mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>
