@@ -2,6 +2,8 @@ import os
 
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
+from app.core.constants import API_KEY_ENV
+
 
 # Gente, esto lo puse acá para que se guíen de cómo se leen las variables de entorno.
 # En Docker el compose ya manda DATABASE_URL; afuera pueden usar un .env en backend/.
@@ -13,6 +15,14 @@ class Settings(BaseSettings):
 
 
 settings = Settings()
+
+
+def validar_api_key() -> None:
+    """Comprueba la API_KEY al arrancar, sin mostrarla ni guardarla en logs."""
+    if not (os.getenv(API_KEY_ENV) or "").strip():
+        raise RuntimeError(
+            "API_KEY no está configurada; no se puede arrancar la API."
+        )
 
 
 def validar_factura_hmac_key() -> None:

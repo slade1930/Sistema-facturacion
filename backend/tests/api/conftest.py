@@ -18,11 +18,12 @@ def client(monkeypatch: pytest.MonkeyPatch) -> Generator[TestClient, None, None]
         "FACTURA_HMAC_KEY",
         os.environ.get("FACTURA_HMAC_KEY") or "clave-hmac-de-prueba-api",
     )
+    # Gente, clave fija de prueba; la app ya no trae ninguna por defecto.
+    api_key = "api-key-de-prueba-api"
+    monkeypatch.setenv("API_KEY", api_key)
 
     # Impórtala recién acá para que ya tenga el entorno listo.
     from app.main import app
-
-    api_key = os.environ.get("API_KEY") or "dev-api-key-cambiar"
 
     # Gente, usamos la base del compose (get_engine ya lee DATABASE_URL del entorno).
     # La conexión queda dentro de una transacción grande y al final le hacemos rollback.
