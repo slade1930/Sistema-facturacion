@@ -20,13 +20,17 @@ from html import escape
 from io import BytesIO
 from pathlib import Path
 from typing import Any, Mapping, Optional
+from urllib.parse import quote, urlsplit, urlunsplit
 
 from reportlab.lib import colors
 from reportlab.lib.pagesizes import letter
 from reportlab.lib.styles import getSampleStyleSheet
 from reportlab.lib.units import mm
+from reportlab.graphics.barcode.qr import QrCodeWidget
+from reportlab.graphics.shapes import Drawing
 from reportlab.platypus import Paragraph, SimpleDocTemplate, Spacer, Table, TableStyle
 
+from app.core.config import settings
 from app.services.numero_a_letras import monto_a_letras_factura
 from app.services.totales import calcular_monto_linea, calcular_totales
 from app.services.verificacion import (
@@ -323,6 +327,57 @@ def _cargar_logo(ruta_logo: Any) -> Optional[Any]:
         return None
 
 
+def _url_verificacion_publica(datos: Mapping[str, Any]) -> str:
+    base_url = (settings.FACTURA_VERIFICACION_BASE_URL or "").strip()
+    if not base_url:
+        raise RuntimeError(
+            "Falta FACTURA_VERIFICACION_BASE_URL; no se puede generar el QR de verificación."
+        )
+
+    partes = urlsplit(base_url)
+    if (
+        partes.scheme not in {"http", "https"}
+        or not partes.netloc
+        or partes.username
+        or partes.password
+        or partes.query
+        or partes.fragment
+    ):
+        raise ValueError(
+            "FACTURA_VERIFICACION_BASE_URL debe ser una URL HTTP(S) pública sin credenciales, "
+            "query ni fragmento."
+        )
+
+    prefijo = partes.path.rstrip("/")
+    ruta = (
+        f"{prefijo}/api/v1/verificar/"
+        f"{quote(str(datos['numero_serie']), safe='')}/"
+        f"{quote(str(datos['codigo_verificacion']), safe='')}"
+    )
+    return urlunsplit((partes.scheme, partes.netloc, ruta, "", ""))
+
+
+def _crear_qr_verificacion(datos: Mapping[str, Any]) -> Drawing:
+    qr = QrCodeWidget(_url_verificacion_publica(datos))
+    x1, y1, x2, y2 = qr.getBounds()
+    ancho, alto = x2 - x1, y2 - y1
+    tamaño = 30 * mm
+    dibujo = Drawing(
+        tamaño,
+        tamaño,
+        transform=[
+            tamaño / ancho,
+            0,
+            0,
+            tamaño / alto,
+            -x1 * tamaño / ancho,
+            -y1 * tamaño / alto,
+        ],
+    )
+    dibujo.add(qr)
+    return dibujo
+
+
 def generar_pdf(datos: dict[str, Any]) -> bytes:
     """Gente, devuelve la factura en PDF listo para guardar o enviar.
 
@@ -453,6 +508,9 @@ def generar_pdf(datos: dict[str, Any]) -> bytes:
         Spacer(1, 4 * mm),
         Paragraph(escape(datos["total_en_letras"]), estilos["Heading2"]),
         texto(f"Código de verificación: {datos['codigo_verificacion']}"),
+        Spacer(1, 3 * mm),
+        texto("Escanee el QR para verificar esta factura:"),
+        _crear_qr_verificacion(datos),
     ]
     if datos["notas"]:
         historia += [Spacer(1, 2 * mm), texto(f"Notas: {datos['notas']}")]
