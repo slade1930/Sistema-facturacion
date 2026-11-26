@@ -18,6 +18,7 @@ from datetime import date, datetime
 from decimal import Decimal
 from html import escape
 from io import BytesIO
+from pathlib import Path
 from typing import Any, Mapping, Optional
 
 from reportlab.lib import colors
@@ -143,6 +144,7 @@ def construir_datos_comprobante(
             "direccion": cfg("empresa_direccion"),
             "correo": cfg("empresa_correo"),
             "telefono": cfg("empresa_telefono"),
+            "logo": cfg("logo"),
         },
         "numero_serie": numero_serie,
         "codigo_verificacion": codigo_verificacion_resuelto,
@@ -288,6 +290,39 @@ th, td {{ border: 1px solid #999; padding: 4px 6px; }}
 </body></html>"""
 
 
+def _cargar_logo(ruta_logo: Any) -> Optional[Any]:
+    """Devuelve el Flowable Image del logo o None si no se puede usar.
+
+    El campo ConfiguracionNegocio.logo guarda una ruta (absoluta o relativa
+    al cwd / backend). Acá nunca lanzamos: si el logo falta, no existe o la
+    imagen está corrupta, el PDF sale exactamente igual que sin logo.
+    """
+    if not ruta_logo:
+        return None
+    try:
+        from reportlab.lib.utils import ImageReader
+        from reportlab.platypus import Image as Imagen
+    except ImportError:
+        return None
+    try:
+        ruta = Path(str(ruta_logo)).expanduser()
+        if not ruta.is_absolute():
+            base_backend = Path(__file__).resolve().parents[2]
+            candidatos = [ruta, Path.cwd() / ruta, base_backend / ruta]
+            ruta = next((c for c in candidatos if c.is_file()), candidatos[0])
+        if not ruta.is_file():
+            return None
+        lector = ImageReader(str(ruta))
+        ancho_px, alto_px = lector.getSize()
+        if ancho_px <= 0 or alto_px <= 0:
+            return None
+        max_ancho, max_alto = 30 * mm, 18 * mm
+        escala = min(max_ancho / ancho_px, max_alto / alto_px, 1.0)
+        return Imagen(str(ruta), width=ancho_px * escala, height=alto_px * escala)
+    except Exception:
+        return None
+
+
 def generar_pdf(datos: dict[str, Any]) -> bytes:
     """Gente, devuelve la factura en PDF listo para guardar o enviar.
 
@@ -322,14 +357,34 @@ def generar_pdf(datos: dict[str, Any]) -> bytes:
     historia = [
         Paragraph(f"FACTURA {escape(str(datos['numero_serie']))}", estilos["Title"]),
         Spacer(1, 4 * mm),
-        texto(empresa["nombre"] or "(empresa sin configurar)"),
     ]
+
+    encabezado_empresa = [texto(empresa["nombre"] or "(empresa sin configurar)")]
     if empresa["ruc"]:
-        historia.append(texto(f"RUC: {empresa['ruc']}"))
+        encabezado_empresa.append(texto(f"RUC: {empresa['ruc']}"))
     if empresa["direccion"]:
-        historia.append(texto(empresa["direccion"]))
+        encabezado_empresa.append(texto(empresa["direccion"]))
     if empresa["correo"] or empresa["telefono"]:
-        historia.append(texto(f"{empresa['correo']} {empresa['telefono']}".strip()))
+        encabezado_empresa.append(texto(f"{empresa['correo']} {empresa['telefono']}".strip()))
+
+    logo = _cargar_logo(empresa.get("logo"))
+    if logo is not None:
+        ancho_disponible = letter[0] - (18 + 18) * mm
+        tabla_encabezado = Table(
+            [[logo, encabezado_empresa]],
+            colWidths=[32 * mm, ancho_disponible - 32 * mm],
+        )
+        tabla_encabezado.setStyle(TableStyle([
+            ("VALIGN", (0, 0), (-1, -1), "TOP"),
+            ("LEFTPADDING", (0, 0), (-1, -1), 0),
+            ("RIGHTPADDING", (0, 0), (-1, -1), 0),
+            ("TOPPADDING", (0, 0), (-1, -1), 0),
+            ("BOTTOMPADDING", (0, 0), (-1, -1), 0),
+        ]))
+        historia.append(tabla_encabezado)
+    else:
+        historia += encabezado_empresa
+
     historia += [
         Spacer(1, 3 * mm),
         texto(

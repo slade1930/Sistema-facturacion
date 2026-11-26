@@ -182,3 +182,40 @@ class TestGenerarPdf:
         monkeypatch.delenv("FACTURA_HMAC_KEY", raising=False)
         with pytest.raises(RuntimeError, match="FACTURA_HMAC_KEY"):
             generar_pdf(_factura_dict(codigo_verificacion=None))
+
+    def test_sin_logo_el_pdf_sale_igual(self):
+        d = construir_datos_comprobante(_factura_dict())
+        assert d["empresa"]["logo"] == ""
+        assert generar_pdf(d).startswith(b"%PDF")
+
+    def test_logo_inexistente_no_rompe_el_pdf(self):
+        d = construir_datos_comprobante(
+            _factura_dict(),
+            configuracion={"empresa_nombre": "Mi Empresa", "logo": "no/existe.png"},
+        )
+        assert d["empresa"]["logo"] == "no/existe.png"
+        assert generar_pdf(d).startswith(b"%PDF")
+
+    def test_logo_corrupto_no_rompe_el_pdf(self, tmp_path):
+        falso = tmp_path / "logo.png"
+        falso.write_bytes(b"esto no es una imagen")
+        d = construir_datos_comprobante(
+            _factura_dict(), configuracion={"logo": str(falso)}
+        )
+        assert generar_pdf(d).startswith(b"%PDF")
+
+    def test_logo_valido_se_dibuja(self, tmp_path):
+        # PNG 1x1 válido en base64.
+        import base64
+
+        png = tmp_path / "logo.png"
+        png.write_bytes(
+            base64.b64decode(
+                "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8"
+                "z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg=="
+            )
+        )
+        d = construir_datos_comprobante(
+            _factura_dict(), configuracion={"logo": str(png)}
+        )
+        assert generar_pdf(d).startswith(b"%PDF")
