@@ -18,3 +18,4 @@ El proyecto utiliza una arquitectura por capas, donde cada capa se comunica con 
 4. El Endpoint llama al **Servicio** para calcular el ITBMS y generar el número FAC-AAAA-0001.
 5. El Servicio usa el **Repositorio** para guardar.
 6. El Repositorio usa el **Modelo** para insertar en **PostgreSQL**.
+
