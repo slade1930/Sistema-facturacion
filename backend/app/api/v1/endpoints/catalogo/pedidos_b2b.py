@@ -11,7 +11,7 @@ from app.schemas.common import Pagina
 from app.schemas.pedidos import PedidoB2BCreate, PedidoB2BRead
 
 router = APIRouter(
-    prefix="/pedidos-b2b",
+    prefix="/pedidos",
     tags=["Pedidos B2B"],
     dependencies=[Depends(requiere_auth)],
 )
@@ -48,7 +48,7 @@ def crear_pedido(datos: PedidoB2BCreate, db: Session = Depends(get_db)):
     return pedido
 
 
-@router.get("", response_model=Pagina[PedidoB2BRead])
+# Gente, el listado ya lo sirve facturacion/pedidos.py: aquí sin decorator para no duplicar GET /pedidos.
 def listar_pedidos(
     cliente_id: int | None = None,
     estado: EstadoPedido | None = None,
@@ -77,7 +77,7 @@ def listar_pedidos(
     )
 
 
-@router.get("/{pedido_id}", response_model=PedidoB2BRead)
+@router.get("/{pedido_id:int}", response_model=PedidoB2BRead)
 def obtener_pedido(pedido_id: int, db: Session = Depends(get_db)):
     repo = PedidoB2BRepository(db)
     pedido = repo.get_con_lineas(pedido_id)

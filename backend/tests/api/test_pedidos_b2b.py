@@ -63,7 +63,7 @@ def test_crear_listar_y_obtener_pedido(client, db):
     _, cliente, producto = _sembrar(db)
 
     creado = client.post(
-        "/api/v1/pedidos-b2b", json=_payload_pedido(cliente.id, producto.id)
+        "/api/v1/pedidos", json=_payload_pedido(cliente.id, producto.id)
     )
 
     assert creado.status_code == 201, creado.text
@@ -73,14 +73,14 @@ def test_crear_listar_y_obtener_pedido(client, db):
     assert len(datos["lineas"]) == 1
     pedido_id = datos["id"]
 
-    listado = client.get("/api/v1/pedidos-b2b")
+    listado = client.get("/api/v1/pedidos")
 
     assert listado.status_code == 200, listado.text
     pagina = listado.json()
     assert pagina["total"] >= 1
     assert any(item["id"] == pedido_id for item in pagina["items"])
 
-    detalle = client.get(f"/api/v1/pedidos-b2b/{pedido_id}")
+    detalle = client.get(f"/api/v1/pedidos/{pedido_id}")
 
     assert detalle.status_code == 200, detalle.text
     assert detalle.json()["id"] == pedido_id
@@ -89,10 +89,10 @@ def test_crear_listar_y_obtener_pedido(client, db):
 
 def test_listar_pedidos_filtra_por_cliente_y_estado(client, db):
     _, cliente, producto = _sembrar(db)
-    client.post("/api/v1/pedidos-b2b", json=_payload_pedido(cliente.id, producto.id))
+    client.post("/api/v1/pedidos", json=_payload_pedido(cliente.id, producto.id))
 
     por_cliente = client.get(
-        "/api/v1/pedidos-b2b",
+        "/api/v1/pedidos",
         params={"cliente_id": cliente.id, "estado": "pendiente"},
     )
 
@@ -100,7 +100,7 @@ def test_listar_pedidos_filtra_por_cliente_y_estado(client, db):
     assert por_cliente.json()["total"] == 1
 
     por_estado = client.get(
-        "/api/v1/pedidos-b2b", params={"estado": "cancelado"}
+        "/api/v1/pedidos", params={"estado": "cancelado"}
     )
 
     assert por_estado.status_code == 200, por_estado.text
@@ -109,7 +109,7 @@ def test_listar_pedidos_filtra_por_cliente_y_estado(client, db):
 
 
 def test_obtener_pedido_inexistente(client):
-    respuesta = client.get("/api/v1/pedidos-b2b/999999")
+    respuesta = client.get("/api/v1/pedidos/999999")
 
     assert respuesta.status_code == 404
 
@@ -118,7 +118,7 @@ def test_crear_pedido_cliente_inexistente(client, db):
     _sembrar(db)
 
     respuesta = client.post(
-        "/api/v1/pedidos-b2b",
+        "/api/v1/pedidos",
         json={
             "cliente_id": 999999,
             "lineas": [

@@ -23,7 +23,7 @@ from app.schemas.catalogo import (
 )
 
 router = APIRouter(
-    prefix="/catalogo",
+    prefix="",
     tags=["Catálogo"],
     dependencies=[Depends(requiere_auth)],
 )

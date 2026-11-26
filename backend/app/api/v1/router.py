@@ -18,6 +18,7 @@ router.include_router(historial.router)
 router.include_router(verificar.router)
 router.include_router(pdf.router)
 router.include_router(configuracion.router)
+# Gente, este router va primero: /pedidos/por-facturar no debe chocar con /pedidos/{id}.
 router.include_router(pedidos.router)
 router.include_router(catalogo.router)
 router.include_router(catalogo_api.router)

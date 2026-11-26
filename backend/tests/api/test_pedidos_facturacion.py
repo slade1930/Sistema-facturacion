@@ -85,7 +85,7 @@ def test_facturar_pedido_exitoso(client, db):
     assert factura["total"] == "21.40"
     assert len(factura["lineas"]) == 1
 
-    pedido_despues = client.get(f"/api/v1/pedidos-b2b/{pedido.id}")
+    pedido_despues = client.get(f"/api/v1/pedidos/{pedido.id}")
 
     assert pedido_despues.status_code == 200, pedido_despues.text
     datos = pedido_despues.json()

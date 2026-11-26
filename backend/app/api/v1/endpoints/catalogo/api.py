@@ -8,8 +8,8 @@ from app.repositories.catalogo import CategoriaRepository, ProductoRepository
 from app.schemas.catalogo import CategoriaRead, ProductoRead
 
 router = APIRouter(
-    prefix="/catalogo/api",
-    tags=["Catálogo API"],
+    prefix="/catalogo",
+    tags=["Catálogo"],
     dependencies=[Depends(requiere_auth)],
 )
 
