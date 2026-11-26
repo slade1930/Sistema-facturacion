@@ -30,11 +30,11 @@ El sistema utiliza PostgreSQL. El esquema oficial consta de 10 tablas y 7 relaci
 
 La base de datos usa tipos ENUM para evitar errores en los estados. Los valores exactos son:
 
-* `condicion_pago`: [Preguntar al Equipo 1 y escribir los valores aquí].
-* `estado` (de factura): [Preguntar al Equipo 1 y escribir los valores aquí].
-* `estado` (de pedido): [Preguntar al Equipo 1 y escribir los valores aquí].
-* `cobrar_por`: [Preguntar al Equipo 1 y escribir los valores aquí].
-* `tipo_empaque`: [Preguntar al Equipo 1 y escribir los valores aquí].
+* `condicion_pago`: [Preguntar al Equipo 1].
+* `estado` (de factura): [Preguntar al Equipo 1].
+* `estado` (de pedido): [Preguntar al Equipo 1].
+* `cobrar_por`: [Preguntar al Equipo 1 ].
+* `tipo_empaque`: [Preguntar al Equipo 1 ].
 
 ## Migraciones con Alembic
 
