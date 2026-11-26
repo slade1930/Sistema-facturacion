@@ -6,6 +6,7 @@ backend/media/
 backend/ml_models/
 # ML: datos generados y modelos entrenados tampoco van a git.
 backend/app/ml/datos_generados/
+backend/app/ml/datasets/generados/
 backend/app/ml/**/*.csv
 backend/app/ml/**/*.pkl
 backend/app/ml/**/*.joblib
