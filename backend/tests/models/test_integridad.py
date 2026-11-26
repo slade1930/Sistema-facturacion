@@ -1,4 +1,4 @@
-from sqlalchemy import CheckConstraint, Enum as SAEnum, UniqueConstraint
+from sqlalchemy import CheckConstraint, Enum as SAEnum, Numeric, UniqueConstraint
 
 from app.db.base import Base
 from app.models import (
@@ -124,7 +124,7 @@ def test_enums_reales_con_valores_del_original():
 
 def test_enum_values_estan_en_minuscula():
     assert [m.value for m in CondicionPago] == ["contado", "credito"]
-    assert [m.value for m in EstadoFactura] == ["emitida", "anulada"]
+    assert [m.value for m in EstadoFactura] == ["emitida", "anulada", "en_revision"]
     assert [m.value for m in CobrarPor] == ["unidad", "caja"]
     assert [m.value for m in EstadoPedido] == [
         "pendiente",
@@ -204,3 +204,10 @@ def test_mixin_de_fechas_realmente_usado():
     for tabla in Base.metadata.tables.values():
         assert "created_at" not in tabla.c
         assert "updated_at" not in tabla.c
+
+
+def test_columnas_de_anomalia_son_nullable():
+    columnas = Base.metadata.tables["factura"].c
+    assert isinstance(columnas["puntaje_anomalia"].type, Numeric)
+    assert columnas["puntaje_anomalia"].nullable is True
+    assert columnas["motivo_anomalia"].nullable is True
