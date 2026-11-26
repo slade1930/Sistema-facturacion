@@ -4,10 +4,13 @@ from sqlalchemy import text
 
 from app.api.v1.router import router as api_v1_router
 from app.core.config import validar_factura_hmac_key
+from app.core.logging import configurar_logging
 from app.db.session import engine
 from app.repositories.catalogo import IntegridadError
 from app.services.ciclo_vida import FacturaYaAnuladaError
 
+# Gente, una sola vez al arrancar; el guard interno no duplica handlers.
+configurar_logging()
 validar_factura_hmac_key()
 
 app = FastAPI(title="Sistema de facturación")
