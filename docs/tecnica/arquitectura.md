@@ -1,6 +1,6 @@
 # Arquitectura del Sistema
 
-El proyecto utiliza una arquitectura por capas, donde cada capa se comunica con la siguiente para mantener el código organizado y permitir el trabajo en equipo.
+El proyecto utiliza una arquitectura por capas, donde cada capa se comunica con la siguiente para mantener el código organizado.
 
 ## Capas del Sistema
 1. **Pantalla (UI - NiceGUI):** Formularios y vistas para el usuario. (`ui/`)
