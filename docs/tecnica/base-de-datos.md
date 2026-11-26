@@ -1,41 +1,32 @@
-# Esquema de Base de Datos
+# Base de Datos y Esquema
 
-El sistema utiliza PostgreSQL. El esquema oficial consta de 10 tablas y 7 relaciones. Puedes ver el diagrama visual completo en los archivos `esquema_facturacion_estilo_final.drawio` y `.png` subidos en esta misma carpeta.
+El sistema usa PostgreSQL con 10 tablas y 7 relaciones.
 
-## Bloques de Tablas y Relaciones
+## Tablas y Relaciones
+1. **Configuración:** `configuracion_negocio`, `contador_serie`, `contador_orden_compra`. (Sin FK entre ellas ni con factura).
+2. **Facturación:** `factura`, `linea_factura` (Relación 1 a N).
+3. **Catálogo:** `categoria`, `producto` (Relación 1 a N).
+4. **Pedidos B2B:** `cliente_b2b`, `pedido_b2b`, `linea_pedido_b2b`. (El campo `factura_generada_id` NO tiene UNIQUE).
 
-1. **Configuración y contadores:**
-   - `configuracion_negocio`: Datos de la empresa.
-   - `contador_serie`: Lleva el control de los números de factura por año.
-   - `contador_orden_compra`: Lleva el control de los números de orden de compra.
-   *(Nota: Estas tablas no tienen llaves foráneas (FK) entre sí ni con la tabla factura).*
+## Detalle de Campos (Principales)
+*   **configuracion_negocio:** id, nombre, ruc, direccion, telefono, correo, logo_url, notas.
+*   **contador_serie:** anio, ultimo_numero.
+*   **contador_orden_compra:** anio, ultimo_numero.
+*   **factura:** id, numero_serie, codigo_verificacion, datos del cliente, subtotal, itbms, total, estado, fecha_anulacion, base_gravada, base_exenta.
+*   **linea_factura:** id, factura_id (FK), producto_id (FK), cantidad, precio_unitario, descuento, subtotal, gravada.
+*   **categoria:** id, nombre.
+*   **producto:** id, categoria_id (FK), nombre, sku, precio_caja, precio_media_caja, precio_unidad, aplica_itbms.
+*   **cliente_b2b:** id, nombre_empresa, ruc, condicion_pago.
+*   **pedido_b2b:** id, cliente_id (FK), factura_generada_id (FK, sin UNIQUE), estado, total_estimado.
+*   **linea_pedido_b2b:** id, pedido_id (FK), producto_id (FK), tipo_empaque, cantidad, subtotal.
 
-2. **Facturación:**
-   - `factura`: Cabecera de la factura (totales, estado, fecha).
-   - `linea_factura`: Detalle de los productos facturados.
-   *(Relación: factura 1 -> N linea_factura).*
+## Los 5 ENUM
+*(Nota: Valores pendientes por confirmar con el código del Equipo 1)*
+*   `condicion_pago`: Pendiente
+*   `estado` (factura): Pendiente
+*   `estado` (pedido): Pendiente
+*   `cobrar_por`: Pendiente
+*   `tipo_empaque`: Pendiente
 
-3. **Catálogo:**
-   - `categoria`: Agrupación de productos.
-   - `producto`: Ítems disponibles (precio por caja, media caja y unidad).
-   *(Relación: categoria 1 -> N producto; producto 1 -> N linea_factura y linea_pedido_b2b).*
-
-4. **Pedidos B2B:**
-   - `cliente_b2b`: Clientes comerciales.
-   - `pedido_b2b`: Cabecera del pedido. *(Nota: el campo `factura_generada_id` apunta a la factura creada y NO tiene restricción UNIQUE, tal como estaba en el sistema original).*
-   - `linea_pedido_b2b`: Detalle del pedido.
-   *(Relación: cliente 1 -> N pedido; pedido 1 -> N línea; factura 0..1 -> N pedido).*
-
-## Los 5 ENUM del sistema
-
-La base de datos usa tipos ENUM para evitar errores en los estados. Los valores exactos son:
-
-* `condicion_pago`: [Preguntar al Equipo 1].
-* `estado` (de factura): [Preguntar al Equipo 1].
-* `estado` (de pedido): [Preguntar al Equipo 1].
-* `cobrar_por`: [Preguntar al Equipo 1 ].
-* `tipo_empaque`: [Preguntar al Equipo 1 ].
-
-## Migraciones con Alembic
-
-Las tablas y sus cambios se manejan con Alembic. Actualmente, el proyecto cuenta con dos (2) migraciones registradas en la carpeta `backend/alembic/versions/`. Solo el equipo de base de datos (Equipo 1) tiene permitido crear nuevas migraciones para evitar conflictos.
+## Migraciones
+El proyecto usa Alembic. Actualmente existen **dos migraciones** en `backend/alembic/versions/`. Solo el Equipo 1 crea nuevas migraciones.
