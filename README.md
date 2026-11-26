@@ -22,7 +22,6 @@ Nota: Para más detalles sobre la instalación, consulta la guía de despliegue.
 
 Tecnologías
 Backend: Python 3.12, FastAPI, SQLAlchemy, Alembic.
-
 Frontend: NiceGUI.
 Base de Datos: PostgreSQL.
 Infraestructura: Docker, Docker Compose.
