@@ -5,7 +5,10 @@ from decimal import Decimal
 
 import pytest
 
+from app.core.config import settings
 from app.services.pdf import (
+    _crear_qr_verificacion,
+    _url_verificacion_publica,
     construir_datos_comprobante,
     generar_pdf,
     renderizar_html,
@@ -168,6 +171,14 @@ class TestRenderizar:
 
 
 class TestGenerarPdf:
+    @pytest.fixture(autouse=True)
+    def configurar_url_publica(self, monkeypatch):
+        monkeypatch.setattr(
+            settings,
+            "FACTURA_VERIFICACION_BASE_URL",
+            "https://facturas.ejemplo.com",
+        )
+
     def test_devuelve_binario_pdf(self):
         d = construir_datos_comprobante(_factura_dict())
         pdf = generar_pdf(d)
@@ -182,6 +193,29 @@ class TestGenerarPdf:
         monkeypatch.delenv("FACTURA_HMAC_KEY", raising=False)
         with pytest.raises(RuntimeError, match="FACTURA_HMAC_KEY"):
             generar_pdf(_factura_dict(codigo_verificacion=None))
+
+    def test_url_verificacion_incluye_serie_y_codigo(self):
+        datos = construir_datos_comprobante(_factura_dict())
+
+        assert _url_verificacion_publica(datos) == (
+            "https://facturas.ejemplo.com/api/v1/verificar/"
+            "FAC-2026-0001/ABC123DEF456"
+        )
+
+    def test_qr_codifica_la_url_de_verificacion(self):
+        datos = construir_datos_comprobante(_factura_dict())
+        qr = _crear_qr_verificacion(datos)
+
+        assert qr.contents[0].value == (
+            "https://facturas.ejemplo.com/api/v1/verificar/"
+            "FAC-2026-0001/ABC123DEF456"
+        )
+
+    def test_falla_si_no_hay_base_url_publica(self, monkeypatch):
+        monkeypatch.setattr(settings, "FACTURA_VERIFICACION_BASE_URL", "")
+
+        with pytest.raises(RuntimeError, match="FACTURA_VERIFICACION_BASE_URL"):
+            generar_pdf(construir_datos_comprobante(_factura_dict()))
 
     def test_sin_logo_el_pdf_sale_igual(self):
         d = construir_datos_comprobante(_factura_dict())
