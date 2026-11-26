@@ -32,6 +32,14 @@ def guardar_logo(
     if len(contenido) > TAMANO_MAXIMO:
         raise ValueError("El logo no puede superar los 5 MB.")
 
+    # Gente, el nombre del usuario no se usa para guardar: nada de rutas ni "..".
+    if (
+        ".." in nombre_archivo
+        or "\\" in nombre_archivo
+        or Path(nombre_archivo).name != nombre_archivo
+    ):
+        raise ValueError("Nombre de archivo no permitido.")
+
     extension = Path(nombre_archivo).suffix.lower().lstrip(".")
 
     if extension not in FORMATOS_PERMITIDOS:
@@ -63,3 +71,29 @@ def guardar_logo(
     ruta.write_bytes(contenido)
 
     return f"media/{nombre_nuevo}"
+
+
+def ruta_segura_media(ruta_relativa: str | None) -> Path | None:
+    """Devuelve la ruta solo si apunta a un archivo directo dentro de media."""
+    if not ruta_relativa:
+        return None
+
+    if ".." in ruta_relativa or "\\" in ruta_relativa:
+        return None
+
+    partes = Path(ruta_relativa).parts
+    if len(partes) != 2 or partes[0] != "media":
+        return None
+
+    candidata = (CARPETA_MEDIA / partes[1]).resolve()
+    if candidata.parent != CARPETA_MEDIA.resolve():
+        return None
+
+    return candidata
+
+
+def borrar_logo(ruta_relativa: str | None) -> None:
+    """Borra un logo anterior solo si está dentro de backend/media."""
+    ruta = ruta_segura_media(ruta_relativa)
+    if ruta is not None and ruta.is_file():
+        ruta.unlink()
