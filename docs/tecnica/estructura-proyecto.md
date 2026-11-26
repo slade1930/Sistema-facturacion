@@ -12,3 +12,6 @@ El repositorio está dividido en las siguientes carpetas principales:
 * `facturacion`: Equipo 2 (Lógica de facturación).
 * `catalogo`: Equipo 3 (Catálogo y pedidos).
 * `api`: Equipo 4 (API y seguridad).
+* `ui-facturacion`: Equipo 5 (Interfaz de facturación).
+* `ui-catalogo`: Equipo 6 (Interfaz de catálogo).
+* `documentacion`: Miriam y Odelkis.
