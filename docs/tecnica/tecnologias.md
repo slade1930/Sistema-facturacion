@@ -12,6 +12,6 @@ El proyecto está desarrollado en **Python 3.12** y utiliza las siguientes libre
 *   **Reportlab:** `5.1.1` (Generación de los PDFs de las facturas).
 *   **HTTPX:** `0.28.1` (Cliente HTTP para pruebas).
 *   **python-multipart:** `0.0.33` (Manejo de formularios y subida de archivos).
-*   **NiceGUI:** (Para la interfaz gráfica, no aparece en esta captura de requirements.txt pero es parte del stack del proyecto).
 *   **PostgreSQL:** Base de datos relacional (corre vía Docker).
 *   **Docker y Docker Compose:** Para levantar el entorno completo.
+*   **NiceGUI:** Interfaz gráfica de usuario (frontend).
