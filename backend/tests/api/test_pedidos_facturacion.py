@@ -1,5 +1,6 @@
 """Pruebas de los endpoints de facturación de pedidos B2B."""
 from decimal import Decimal
+from uuid import uuid4
 
 import pytest
 from sqlalchemy.orm import Session
@@ -30,16 +31,18 @@ def db(client) -> Session:
 
 
 def _sembrar(db: Session, estado: EstadoPedido = EstadoPedido.PENDIENTE):
-    categoria = Categoria(nombre="Cat Fact Pedidos API")
+    # Gente, sufijo cortito para no chocar con el UNIQUE si sembramos varias veces.
+    sufijo = uuid4().hex[:8]
+    categoria = Categoria(nombre=f"Cat Fact Pedidos API-{sufijo}")
     cliente = ClienteB2B(
         nombre_empresa="Cliente Fact Pedidos API SAC",
-        ruc="155699900-2-2026",
+        ruc=f"155699900-2-2026-{sufijo}",
         email_contacto="factpedidos@api.com",
     )
     producto = Producto(
         categoria=categoria,
         nombre="Prod Fact Pedidos API",
-        sku="SKU-FACT-PED-1",
+        sku=f"SKU-FACT-PED-{sufijo}",
         precio_caja=Decimal("10.00"),
         precio_unidad=Decimal("1.00"),
         unidades_por_caja=10,
