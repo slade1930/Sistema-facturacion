@@ -1,6 +1,7 @@
 .env
 __pycache__/
 .venv/
-backend/media/*
+# Logos subidos por la API: nada de backend/media va a git.
+backend/media/
 backend/ml_models/
 .pytest_cache/

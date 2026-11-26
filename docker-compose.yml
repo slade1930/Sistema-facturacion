@@ -23,6 +23,7 @@ services:
     environment:
       DATABASE_URL: postgresql+psycopg://${POSTGRES_USER:-factura}:${POSTGRES_PASSWORD:-factura}@db:5432/${POSTGRES_DB:-factura}
       FACTURA_HMAC_KEY: ${FACTURA_HMAC_KEY:-dev-hmac-cambiar}
+      API_KEY: ${API_KEY:?Define API_KEY en tu .env}
     ports:
       - "8000:8000"
     # Esperamos a la db, pasamos migraciones y recién ahí arranca uvicorn.
