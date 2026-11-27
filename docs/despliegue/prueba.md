@@ -1,4 +1,4 @@
-# Pruebas automatizadas del backend
+# Pruebas 
 
 Explicación de cómo ejecutar las pruebas automatizadas del backend del sistema de facturación, dónde se encuentran organizadas y qué requisitos necesitan para ejecutarse correctamente.
 
