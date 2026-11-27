@@ -38,7 +38,11 @@ _PATRON_RANGO = re.compile(
 _PATRON_AnioMes = re.compile(r"\b(20\d{2})[-/](\d{1,2})\b")
 _PATRON_ANIO = re.compile(r"\b(20\d{2})\b")
 _PATRON_CLIENTE = re.compile(r"\bcliente\s*(?:n[°ºo]?\.?\s*)?(\d+)\b")
+_PATRON_CLIENTE_TEXTO = re.compile(r"\bcliente\s+([a-z][a-z0-9_-]*)\b")
 _PATRON_TOP = re.compile(r"\btop\s*(\d+)\b")
+PALABRAS_CLIENTE_IGNORADAS = frozenset(
+    {"de", "del", "por", "en", "el", "la", "los", "las", "un", "una", "con"}
+)
 
 REGLAS = (
     (("en revision", "en_revision"), "facturas_en_revision", 0.95),
@@ -128,22 +132,33 @@ def extraer_fechas(texto: str, hoy: date | None = None) -> dict:
     return parametros
 
 
+def extraer_parametros(texto: str, hoy: date | None = None) -> dict:
+    parametros = extraer_fechas(texto, hoy)
+    if FECHA_INVALIDA in parametros:
+        return parametros
+
+    cliente = _PATRON_CLIENTE.search(texto)
+    if cliente:
+        parametros["cliente_id"] = int(cliente.group(1))
+    else:
+        nombre = _PATRON_CLIENTE_TEXTO.search(texto)
+        if nombre and nombre.group(1) not in PALABRAS_CLIENTE_IGNORADAS:
+            parametros["cliente"] = nombre.group(1)
+
+    top = _PATRON_TOP.search(texto)
+    if top:
+        parametros["n"] = int(top.group(1))
+    return parametros
+
+
 def clasificar(pregunta: str, hoy: date | None = None) -> Intencion | None:
     texto = normalizar(pregunta)
     if not texto:
         return None
 
-    parametros = extraer_fechas(texto, hoy)
+    parametros = extraer_parametros(texto, hoy)
     if FECHA_INVALIDA in parametros:
         return None
-
-    cliente = _PATRON_CLIENTE.search(texto)
-    if cliente:
-        parametros["cliente_id"] = int(cliente.group(1))
-
-    top = _PATRON_TOP.search(texto)
-    if top:
-        parametros["n"] = int(top.group(1))
 
     for claves, nombre, confianza in REGLAS:
         if any(clave in texto for clave in claves):
