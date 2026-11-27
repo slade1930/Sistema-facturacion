@@ -31,6 +31,26 @@ def test_clasificar_preguntas_predefinidas(pregunta, nombre, parametros):
 @pytest.mark.parametrize(
     "pregunta, parametros",
     [
+        ("Ventas por cliente Acme", {"cliente": "acme"}),
+        ("Ventas por cliente Acme S.A.", {"cliente": "acme s.a"}),
+        ("Ventas por cliente Acme S.A. en 2026", {"anio": 2026, "cliente": "acme s.a"}),
+        ("Ventas por cliente Acme Sur en 2026", {"anio": 2026, "cliente": "acme sur"}),
+        ("Ventas por cliente Compañía La Acme", {"cliente": "compania la acme"}),
+        ("Ventas del cliente El Alto", {"cliente": "el alto"}),
+        ("Ventas por cliente La Acme 2026", {"anio": 2026, "cliente": "la acme"}),
+        ("Ventas por cliente en 2026", {"anio": 2026}),
+    ],
+)
+def test_cliente_por_nombre_compuesto(pregunta, parametros):
+    resultado = intenciones.clasificar(pregunta, hoy=HOY)
+    assert resultado is not None
+    assert resultado.nombre == "ventas_por_cliente"
+    assert resultado.parametros == parametros
+
+
+@pytest.mark.parametrize(
+    "pregunta, parametros",
+    [
         ("Ventas de este año", {"anio": 2026}),
         ("Ventas del año pasado", {"anio": 2025}),
         ("Ventas de este mes", {"anio": 2026, "mes": 11}),
