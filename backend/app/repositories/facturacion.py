@@ -63,6 +63,16 @@ class FacturaRepository:
         return db.scalars(stmt).first()
 
     @staticmethod
+    def existe_numero_serie(
+        db: Session, numero_serie: str, excluir_id: Optional[int] = None
+    ) -> bool:
+        """¿Existe otra factura con esa serie? Sirve para marcar duplicados."""
+        stmt = select(Factura.id).where(Factura.numero_serie == numero_serie)
+        if excluir_id is not None:
+            stmt = stmt.where(Factura.id != excluir_id)
+        return db.scalars(stmt.limit(1)).first() is not None
+
+    @staticmethod
     def verificar(
         db: Session, numero_serie: str, codigo_verificacion: str
     ) -> Optional[Factura]:
@@ -86,6 +96,7 @@ class FacturaRepository:
         db: Session,
         *,
         estado: Optional[EstadoFactura] = None,
+        en_revision: Optional[bool] = None,
         fecha_desde: Optional[date] = None,
         fecha_hasta: Optional[date] = None,
         cliente: Optional[str] = None,
@@ -96,6 +107,8 @@ class FacturaRepository:
 
         if estado is not None:
             stmt = stmt.where(Factura.estado == estado)
+        if en_revision is not None:
+            stmt = stmt.where(Factura.en_revision == en_revision)
         if fecha_desde is not None:
             stmt = stmt.where(Factura.fecha >= fecha_desde)
         if fecha_hasta is not None:

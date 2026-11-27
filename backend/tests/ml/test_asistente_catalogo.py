@@ -25,6 +25,7 @@ def _factura(fid, fecha, total, estado, cliente, lineas=None):
         fecha=fecha,
         total=Decimal(str(total)),
         estado=estado,
+        en_revision=(estado == EstadoFactura.EN_REVISION),
         cliente_nombre=cliente,
         lineas=lineas or (),
     )
@@ -74,6 +75,7 @@ def repositorio(monkeypatch):
         db,
         *,
         estado=None,
+        en_revision=None,
         fecha_desde=None,
         fecha_hasta=None,
         cliente=None,
@@ -83,6 +85,7 @@ def repositorio(monkeypatch):
         vistos.append(
             {
                 "estado": estado,
+                "en_revision": en_revision,
                 "fecha_desde": fecha_desde,
                 "fecha_hasta": fecha_hasta,
                 "cliente": cliente,
@@ -98,6 +101,10 @@ def repositorio(monkeypatch):
                 for f in resultados
                 if (f.estado.value if hasattr(f.estado, "value") else str(f.estado))
                 == valor
+            ]
+        if en_revision is not None:
+            resultados = [
+                f for f in resultados if bool(getattr(f, "en_revision", False)) == en_revision
             ]
         if fecha_desde:
             resultados = [f for f in resultados if f.fecha >= fecha_desde]
@@ -164,7 +171,7 @@ def test_facturas_anuladas_y_en_revision_usan_el_estado(repositorio):
     assert revision["cantidad"] == 1
     assert revision["datos"][0]["numero_serie"] == "FAC-0003"
     assert repositorio[0]["estado"] == EstadoFactura.ANULADA
-    assert repositorio[1]["estado"] == EstadoFactura.EN_REVISION
+    assert repositorio[1]["en_revision"] is True
     assert anuladas["truncado"] is False
     assert revision["truncado"] is False
 

@@ -4,6 +4,7 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 
 from app.api.v1.deps import get_db, requiere_auth
+from app.api.v1.endpoints.ml import anomalias as anomalias_api
 from app.models.facturacion import Factura, LineaFactura
 from app.repositories.facturacion import ContadorSerieRepository, FacturaRepository
 from app.schemas.facturacion import FacturaCreate, FacturaRead, LineaFacturaCreate
@@ -69,7 +70,21 @@ def crear_factura(datos: FacturaCreate, db: Session = Depends(get_db)):
         factura.cliente_ruc or "",
     )
 
+    serie_repetida = False
+    try:
+        serie_repetida = FacturaRepository.existe_numero_serie(
+            db, factura.numero_serie
+        )
+    except Exception:
+        # El hook es best-effort: si no se puede consultar, seguimos igual.
+        serie_repetida = False
+
     FacturaRepository.crear(db, factura, lineas, commit=False)
+    try:
+        anomalias_api.evaluar_al_crear(factura, serie_repetida=serie_repetida)
+    except Exception:
+        # El ML sugiere, nunca bloquea la creación de la factura.
+        pass
     db.commit()
     db.refresh(factura)
     return factura
