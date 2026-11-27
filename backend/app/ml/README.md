@@ -110,18 +110,18 @@ Las reglas trabajan con datos en memoria, no consultan directamente la base de d
 
 Los rasgos nuevos viven en `modelos/anomalias.py`, no en `features/anomalias.py` (archivo de Antony, intacto). `desde_factura(factura)` arma el vector desde una `Factura` de la app y `marcar_series_repetidas(lista)` marca la segunda y siguientes facturas con la misma serie. Moisés puede usar ambos desde su endpoint sin tocar los modelos de datos.
 
-**Umbral de `en_revision`:** `0.5614`, guardado en `modelo.UMBRAL_REVISION` para que `predecir()` use el mismo valor. Se eligió por mejor F1 con **33 etiquetas de calibración** y se mide sobre **22 etiquetas de validación que el ajuste nunca vio** (separación por id, sin azar). Las facturas usadas para calibrar se excluyen de las métricas, así que no cuentan como falsos positivos. Las etiquetas nunca entrenan el modelo.
+**Umbral de `en_revision`:** `0.5377`, guardado en `modelo.UMBRAL_REVISION` para que `predecir()` use el mismo valor. Se eligió por mejor F1 con **33 etiquetas de calibración** y se mide sobre **22 etiquetas de validación que el ajuste nunca vio** (separación por id, sin azar). Las facturas usadas para calibrar se excluyen de las métricas, así que no cuentan como falsos positivos. Las etiquetas nunca entrenan el modelo. Estas cifras usan los CSV corregidos del PR #51 (los cinco casos `descuento_alto` ahora sí tienen descuento real); conviene mergear ese PR antes o junto con este.
 
 **Métricas** (1000 facturas, 22 etiquetas de validación; reglas con umbral de puntaje 20):
 
 | Evaluación | TP | FP | FN | Precisión | Recall | F1 |
 |---|---:|---:|---:|---:|---:|---:|
-| Reglas de Antony | 6 | 43 | 16 | 0,1224 | 0,2727 | 0,1690 |
-| Isolation Forest | 17 | 3 | 5 | 0,8500 | 0,7727 | 0,8095 |
+| Reglas de Antony | 9 | 43 | 13 | 0,1731 | 0,4091 | 0,2432 |
+| Isolation Forest | 21 | 2 | 1 | 0,9130 | 0,9545 | 0,9333 |
 
-El modelo baja los falsos positivos de 43 a 3 y sube el F1 de 0,1690 a 0,8095, todo en datos que no vio al elegir el umbral.
+El modelo baja los falsos positivos de 43 a 2 y sube el F1 de 0,2432 a 0,9333, todo en datos que no vio al elegir el umbral.
 
-**Límite conocido:** el holdout son 22 etiquetas, así que las métricas pueden moverse un poco si cambia la semilla del generador; la calibración con 33 etiquetas también es chica. Los cinco casos `descuento_alto` del dataset están etiquetados pero **no tienen descuentos altos en los CSV** (el generador marca el caso y no aplica el descuento: entre 0 % y 8,75 %). Ningún modelo puede verlos; eso explica los falsos negativos que quedan y merece un issue para Andres/Cristian, dueños de `generar_datos.py`. No se tocó ese archivo acá. Fuera de eso, los seis tipos tienen señal y el modelo no cambia el `estado`.
+**Límite conocido:** el holdout son 22 etiquetas, así que las métricas pueden moverse un poco si cambia la semilla del generador; la calibración con 33 etiquetas también es chica. Queda un falso negativo (`total_muy_alto` con monto parecido a uno normal). Los seis tipos tienen señal y el modelo no cambia el `estado`. El bug de `descuento_alto` sin descuento real se arregló en el PR #51, que regeneró los CSV con la misma semilla; este PR no tocó `generar_datos.py`.
 
 **Cómo correrlo** (dentro del contenedor):
 
@@ -130,7 +130,7 @@ python -m app.ml.entrenamiento.entrenar_anomalias
 python -m app.ml.evaluacion.anomalias
 ```
 
-**Pruebas:** 24 en `test_modelo_anomalias.py` y `test_evaluacion_anomalias.py` (determinismo por semilla, señales raras, series repetidas, guardar/cargar, `.pkl` corrupto, métricas, separación calibración/validación, sin modelo y sin depender de los CSV versionados). Suite completa: 449 pruebas aprobadas y 1 omitida.
+**Pruebas:** 24 en `test_modelo_anomalias.py` y `test_evaluacion_anomalias.py` (determinismo por semilla, señales raras, series repetidas, guardar/cargar, `.pkl` corrupto, métricas, separación calibración/validación, sin modelo y sin depender de los CSV versionados). Suite completa en esta rama: 449 pruebas aprobadas y 1 omitida (450 y 1 después de mergear el PR #51).
 
 **Archivos implementados:**
 

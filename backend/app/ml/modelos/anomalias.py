@@ -26,7 +26,7 @@ NOMBRES_RASGOS = (
 _SIN_RUC = object()  # distingue "no hay dato" de "no tiene RUC"
 SEMILLA = 20261126
 N_ARBOLES = 100
-UMBRAL_REVISION = 0.5614  # fijado con las etiquetas; ver README 6.2
+UMBRAL_REVISION = 0.5377  # fijado con las etiquetas; ver README 6.2
 GAMMA = 0.5772156649015329
 
 
