@@ -53,6 +53,8 @@ También se pueden correr con `docker compose exec -T backend python -m app.ml.d
 
 - `puntaje_anomalia` va en escala **0 a 100**.
 - El módulo escribe **solo** `en_revision`, `puntaje_anomalia` y `motivo_anomalia`; **no cambia** el `estado` `emitida`/`anulada`.
+- `en_revision` es una columna booleana propia (migración `20261127_0004`), no el valor del enum. Así `catalogo.facturas_en_revision()` del asistente encuentra las facturas marcadas por el modelo sin tocar el estado. Sin modelo no se escribe nada.
+- `FacturaRead` devuelve los tres campos para que el front vea la sugerencia.
 - El umbral lo fija Flinn con las métricas y lo documenta acá.
 
 ### 6.1. Antony — Reglas base de detección de anomalías
