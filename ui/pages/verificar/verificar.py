@@ -2,7 +2,9 @@ from typing import Any
 
 from nicegui import ui
 
+from components.forms import boton_orquidea, campo_orquidea, mensaje_error, notificar
 from components.layout import montar_layout
+from components.shared import sello_emitir, sello_estado, total_animado
 from state.cliente_api import ClienteApi, ErrorApi
 
 cliente = ClienteApi()
@@ -25,13 +27,15 @@ def _describir_error(error: dict[str, Any]) -> str:
 
 @ui.page("/verificar")
 def pagina_verificar() -> None:
-    montar_layout("Verificar factura")
+    montar_layout("Verificar")
 
-    numero_serie = ui.input("Número de serie", placeholder="FAC-2026-0001").classes("w-full")
-    codigo = ui.input(
-        "Código de verificación",
-        placeholder="Código impreso en la factura",
-    ).classes("w-full")
+    with ui.column().classes("w-full gap-3"):
+        numero_serie = campo_orquidea(
+            "Número de serie", placeholder="FAC-2026-0001"
+        ).classes("w-full")
+        codigo = campo_orquidea(
+            "Código de verificación", placeholder="Código impreso en la factura"
+        ).classes("w-full")
     resultado = ui.column()
     mensajes = ui.column()
 
@@ -43,34 +47,42 @@ def pagina_verificar() -> None:
         clave = (codigo.value or "").strip()
         if not serie or not clave:
             with mensajes:
-                ui.label(
-                    "Ingresá el número de serie y el código de verificación."
-                ).classes("text-negative")
+                mensaje_error("Ingresá el número de serie y el código de verificación.")
             return
 
         try:
             datos = consultar(cliente, serie, clave)
         except ErrorApi as error:
             with mensajes:
-                ui.label(f"{error.code}: {error.detail}").classes("text-negative")
+                mensaje_error(f"{error.code}: {error.detail}")
                 for item in error.errors:
-                    ui.label(_describir_error(item)).classes("text-caption text-negative")
+                    mensaje_error(_describir_error(item))
+            notificar(f"No se pudo verificar: {error.detail}.", "negative")
             return
 
         with resultado:
-            with ui.card().classes("w-full"):
-                ui.label("Factura válida").classes("text-positive text-h6")
+            with ui.element("section").classes("orq-ticket w-full") as ticket:
+                with ui.row().classes("orq-ticket-cabecera w-full"):
+                    with ui.column().classes("gap-0"):
+                        ui.label(_valor(datos, "numero_serie")).classes(
+                            "orq-ticket-folio"
+                        )
+                        ui.label("Factura válida").classes("orq-ticket-fecha")
+                    sello_estado(_valor(datos, "estado") or "emitida")
                 campos = (
-                    ("Número de serie", "numero_serie"),
                     ("Código de verificación", "codigo_verificacion"),
                     ("Fecha", "fecha"),
                     ("Cliente", "cliente_nombre"),
-                    ("Total", "total"),
-                    ("Estado", "estado"),
                 )
-                for etiqueta, campo in campos:
-                    with ui.row().classes("w-full justify-between"):
-                        ui.label(f"{etiqueta}:").classes("text-grey")
-                        ui.label(_valor(datos, campo))
+                with ui.column().classes("orq-ticket-datos w-full"):
+                    for etiqueta, campo in campos:
+                        with ui.element("div").classes("orq-dato"):
+                            ui.label(etiqueta).classes("orq-dato-etiqueta")
+                            ui.label(_valor(datos, campo)).classes("orq-dato-valor")
+                with ui.column().classes("orq-ticket-totales"):
+                    total_animado(_valor(datos, "total"))
+        sello_emitir(_valor(datos, "numero_serie") or serie, titulo="Válida")
+        notificar("Factura válida. Los datos coinciden con el registro.")
 
-    ui.button("Verificar", on_click=verificar).classes("mt-2")
+    with ui.row().classes("mt-1"):
+        boton_orquidea("Verificar", verificar, variante="primario")

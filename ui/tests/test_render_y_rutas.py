@@ -92,7 +92,7 @@ async def test_nueva_factura_renderiza_errors_de_validacion(monkeypatch):
         await user.open("/")
         _establecer_input(user, "Cliente", "Cliente de prueba")
         _establecer_input(user, "Descripción", "Servicio")
-        user.find("Guardar factura").click()
+        user.find("Emitir factura").click()
 
         await user.should_see("VALIDATION_ERROR: Datos inválidos.")
         await user.should_see("body.cliente_nombre: Field required")
@@ -225,7 +225,8 @@ async def test_detalle_factura_renderiza_datos_y_acciones(monkeypatch):
 
     async with user_simulation(root=lambda: detalle.pagina_detalle(factura_id=7)) as user:
         await user.open("/")
-        await user.should_see("FAC-2026-0007 · emitida")
+        await user.should_see("FAC-2026-0007")
+        await user.should_see("Emitida")
         await user.should_see("Cliente de prueba")
         await user.should_see("25.00")
         await user.should_see("Anular")

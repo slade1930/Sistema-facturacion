@@ -2,7 +2,9 @@ from typing import Any
 
 from nicegui import ui
 
+from components.forms import boton_orquidea, campo_orquidea, mensaje_error, notificar
 from components.layout import montar_layout
+from components.shared import ticket_factura
 from state.cliente_api import ClienteApi, ErrorApi
 from state.sesion import sesion
 
@@ -41,16 +43,17 @@ def _valor(datos: dict[str, Any], clave: str) -> str:
 
 @ui.page("/facturacion/detalle")
 def pagina_detalle(factura_id: int | None = None) -> None:
-    montar_layout("Detalle de factura")
+    montar_layout("Detalle de factura", ruta_activa="/facturacion/historial")
 
     inicial = factura_id
     if inicial is None and sesion.ultima_factura:
         inicial = sesion.ultima_factura.get("id")
 
-    entrada = ui.input(
-        "ID de factura", value=str(inicial) if inicial is not None else ""
-    )
-    ui.button("Cargar", on_click=lambda: cargar()).classes("mt-2")
+    with ui.row().classes("w-full items-end gap-2"):
+        entrada = campo_orquidea(
+            "ID de factura", value=str(inicial) if inicial is not None else ""
+        )
+        boton_orquidea("Cargar", lambda: cargar(), variante="secundario")
     mensajes = ui.column()
     resultado = ui.column().classes("w-full")
     actual: dict[str, Any] = {"factura": None}
@@ -58,57 +61,33 @@ def pagina_detalle(factura_id: int | None = None) -> None:
     def mostrar_error(error: ErrorApi) -> None:
         mensajes.clear()
         with mensajes:
-            ui.label(f"{error.code}: {error.detail}").classes("text-negative")
+            mensaje_error(f"{error.code}: {error.detail}")
             for item in error.errors:
-                ui.label(str(item)).classes("text-caption text-negative")
+                ubicacion = ".".join(str(parte) for parte in item.get("loc", []))
+                texto = item.get("msg") or item.get("detail") or "Valor inválido."
+                mensaje_error(f"{ubicacion}: {texto}" if ubicacion else texto)
 
     def pintar(factura: dict[str, Any]) -> None:
         actual["factura"] = factura
         sesion.ultima_factura = factura
         resultado.clear()
         with resultado:
-            with ui.card().classes("w-full"):
-                ui.label(
-                    f"{_valor(factura, 'numero_serie')} · {_valor(factura, 'estado')}"
-                ).classes("text-h6")
-                campos = (
-                    ("Cliente", "cliente_nombre"),
-                    ("RUC", "cliente_ruc"),
-                    ("Fecha", "fecha"),
-                    ("Condición", "condicion_pago"),
-                    ("Subtotal", "subtotal"),
-                    ("Descuento", "descuento_total"),
-                    ("Base gravada", "base_gravada"),
-                    ("Base exenta", "base_exenta"),
-                    ("ITBMS", "itbms"),
-                    ("Portes", "portes"),
-                    ("Total", "total"),
-                    ("Código de verificación", "codigo_verificacion"),
-                    ("Orden de compra", "orden_compra"),
-                    ("Notas", "notas"),
+            ticket_factura(factura, list(COLUMNAS_LINEAS))
+            with ui.row().classes("orq-ticket-acciones"):
+                boton_orquidea("Anular", lambda: anular_actual(), variante="peligro")
+                boton_orquidea(
+                    "Duplicar", lambda: duplicar_actual(), variante="secundario"
                 )
-                for etiqueta, campo in campos:
-                    with ui.row().classes("w-full justify-between"):
-                        ui.label(f"{etiqueta}:").classes("text-grey")
-                        ui.label(_valor(factura, campo))
-
-                ui.table(
-                    columns=list(COLUMNAS_LINEAS),
-                    rows=list(factura.get("lineas", [])),
-                    row_key="id",
-                ).classes("w-full")
-
-                with ui.row().classes("gap-2 mt-2"):
-                    ui.button("Anular", on_click=lambda: anular_actual())
-                    ui.button("Duplicar", on_click=lambda: duplicar_actual())
-                    ui.button("Descargar PDF", on_click=lambda: descargar())
+                boton_orquidea(
+                    "Descargar PDF", lambda: descargar(), variante="secundario"
+                )
 
     def cargar() -> None:
         mensajes.clear()
         texto = (entrada.value or "").strip()
         if not texto.isdigit():
             with mensajes:
-                ui.label("Ingresá un ID numérico de factura.").classes("text-negative")
+                mensaje_error("Ingresá un ID numérico de factura.")
             return
         try:
             factura = obtener(cliente, int(texto))
@@ -127,7 +106,7 @@ def pagina_detalle(factura_id: int | None = None) -> None:
             mostrar_error(error)
             return
         pintar(actualizada)
-        ui.notify("Factura anulada.", type="positive")
+        notificar("Factura anulada. Ya no se puede emitir.")
 
     def duplicar_actual() -> None:
         factura = actual["factura"]
@@ -139,7 +118,7 @@ def pagina_detalle(factura_id: int | None = None) -> None:
             mostrar_error(error)
             return
         pintar(nueva)
-        ui.notify(f"Duplicada como {nueva['numero_serie']}.", type="positive")
+        notificar(f"Duplicada como {nueva['numero_serie']}.")
 
     def descargar() -> None:
         factura = actual["factura"]

@@ -2,7 +2,9 @@ from typing import Any
 
 from nicegui import ui
 
+from components.forms import boton_orquidea, campo_orquidea, mensaje_error, notificar
 from components.layout import montar_layout
+from components.shared import sello_emitir, sello_estado, total_animado
 from state.cliente_api import ClienteApi, ErrorApi
 from state.sesion import sesion
 
@@ -23,6 +25,11 @@ def _texto(valor: Any) -> str | None:
         return None
     texto = str(valor).strip()
     return texto or None
+
+
+def _valor(datos: dict[str, Any], clave: str) -> str:
+    valor = datos.get(clave)
+    return "" if valor is None else str(valor)
 
 
 def construir_payload(datos: dict[str, Any], lineas: list[dict[str, Any]]) -> dict[str, Any]:
@@ -140,8 +147,8 @@ def pagina_nueva() -> None:
         ]
 
     with ui.row().classes("gap-2 my-2"):
-        ui.button("Agregar línea", on_click=agregar_linea)
-        ui.button("Guardar factura", on_click=lambda: guardar())
+        boton_orquidea("Agregar línea", agregar_linea, variante="secundario")
+        boton_orquidea("Emitir factura", lambda: guardar())
 
     resultado = ui.column().classes("w-full")
 
@@ -149,7 +156,7 @@ def pagina_nueva() -> None:
         try:
             contenido = obtener_pdf(cliente, int(factura["id"]))
         except ErrorApi as error:
-            ui.notify(f"{error.code}: {error.detail}", type="negative")
+            notificar(f"No se pudo descargar el PDF: {error.detail}.", "negative")
             return
         ui.download(
             contenido,
@@ -180,47 +187,52 @@ def pagina_nueva() -> None:
 
         if not payload["cliente_nombre"] or not payload["lineas"]:
             with mensajes:
-                ui.label("Ingresá el cliente y al menos una línea.").classes(
-                    "text-negative"
-                )
+                mensaje_error("Ingresá el cliente y al menos una línea.")
             return
         if any(not linea["descripcion"] for linea in payload["lineas"]):
             with mensajes:
-                ui.label("Todas las líneas necesitan descripción.").classes(
-                    "text-negative"
-                )
+                mensaje_error("Todas las líneas necesitan descripción.")
             return
 
         try:
             factura = crear(cliente, payload)
         except ErrorApi as error:
             with mensajes:
-                ui.label(f"{error.code}: {error.detail}").classes("text-negative")
+                mensaje_error(f"{error.code}: {error.detail}")
                 for item in error.errors:
                     ubicacion = ".".join(str(parte) for parte in item.get("loc", []))
                     texto = item.get("msg") or item.get("detail") or "Valor inválido."
-                    ui.label(f"{ubicacion}: {texto}").classes("text-caption text-negative")
+                    mensaje_error(f"{ubicacion}: {texto}")
             return
 
         sesion.ultima_factura = factura
         with resultado:
-            with ui.card().classes("w-full"):
-                ui.label(f"Factura {factura['numero_serie']} creada").classes(
-                    "text-positive text-h6"
-                )
+            with ui.element("section").classes("orq-ticket w-full") as ticket:
+                with ui.row().classes("orq-ticket-cabecera w-full"):
+                    with ui.column().classes("gap-0"):
+                        ui.label(factura["numero_serie"]).classes("orq-ticket-folio")
+                        ui.label("Factura emitida.").classes("orq-ticket-fecha")
+                    sello_estado(factura.get("estado", "emitida"))
                 campos = (
                     ("Cliente", "cliente_nombre"),
                     ("Fecha", "fecha"),
                     ("Subtotal", "subtotal"),
                     ("Descuento", "descuento_total"),
                     ("ITBMS", "itbms"),
-                    ("Total", "total"),
-                    ("Estado", "estado"),
                 )
-                for etiqueta, campo in campos:
-                    with ui.row().classes("w-full justify-between"):
-                        ui.label(f"{etiqueta}:").classes("text-grey")
-                        ui.label(str(factura.get(campo, "")))
-                ui.button("Descargar PDF", on_click=lambda: descargar(factura))
+                with ui.column().classes("orq-ticket-datos w-full"):
+                    for etiqueta, campo in campos:
+                        with ui.element("div").classes("orq-dato"):
+                            ui.label(etiqueta).classes("orq-dato-etiqueta")
+                            ui.label(_valor(factura, campo)).classes("orq-dato-valor")
+                with ui.column().classes("orq-ticket-totales"):
+                    total_animado(_valor(factura, "total"))
+                boton_orquidea(
+                    "Descargar PDF",
+                    lambda: descargar(factura),
+                    variante="secundario",
+                ).classes("mt-4")
+        sello_emitir(factura["numero_serie"])
+        notificar(f"Factura emitida: {factura['numero_serie']}.")
 
     agregar_linea()
