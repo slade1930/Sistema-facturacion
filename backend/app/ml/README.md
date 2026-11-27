@@ -54,6 +54,51 @@ También se pueden correr con `docker compose exec -T backend python -m app.ml.d
 - `puntaje_anomalia` va en escala **0 a 100**.
 - El módulo escribe **solo** `en_revision`, `puntaje_anomalia` y `motivo_anomalia`; **no cambia** el `estado` `emitida`/`anulada`.
 - El umbral lo fija Flinn con las métricas y lo documenta acá.
+### 6.1. Antony — Reglas base de detección de anomalías
+
+**Estado:** Implementado y probado.
+
+Se desarrollaron reglas para identificar posibles anomalías en las facturas sin depender de un modelo entrenado.
+
+**Características implementadas:**
+
+- **Monto alto:** identifica facturas cuyo total supera el percentil 95 del historial. Requiere al menos 20 facturas para realizar la evaluación.
+- **Descuento alto:** identifica descuentos superiores al 30%.
+- **Facturas duplicadas:** detecta coincidencias de cliente, fecha y total, excluyendo la misma factura.
+- **Anulaciones repetidas:** identifica clientes que acumulan tres o más facturas anuladas.
+
+**Puntaje de anomalía:**
+
+Cada regla aporta un peso al resultado:
+
+| Regla | Peso |
+|---|---:|
+| Monto alto | 40 |
+| Descuento alto | 25 |
+| Factura duplicada | 30 |
+| Anulaciones repetidas | 20 |
+
+El puntaje final se limita a una escala de 0 a 100.
+
+**Pruebas realizadas:**
+
+- Pruebas unitarias de las cuatro reglas.
+- Pruebas de combinación de hallazgos y cálculo del puntaje.
+- Suite completa del backend: 319 pruebas aprobadas y 1 omitida.
+
+**Evaluación y métricas:**
+
+Las reglas funcionan sin necesidad de entrenar un modelo. La comparación de precisión, recall y F1 contra las 55 etiquetas de anomalías queda pendiente de la evaluación del módulo, a cargo de Flinn. No se reportan métricas de clasificación todavía.
+
+**Revisión de seguridad:**
+
+Las reglas trabajan con datos en memoria, no consultan directamente la base de datos ni utilizan servicios externos. No bloquean facturas ni modifican su estado.
+
+**Archivos implementados:**
+
+- `backend/app/ml/features/anomalias.py`
+- `backend/app/ml/reglas/anomalias.py`
+- `backend/tests/ml/test_reglas_anomalias.py`
 
 ## 7. Ramas de trabajo
 
