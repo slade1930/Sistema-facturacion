@@ -45,3 +45,32 @@ def regla_monto_alto(factura: RasgosFactura, historial: list[RasgosFactura]):
             peso=40,
         )
     return None
+UMBRAL_DESCUENTO_PCT = Decimal("30")
+
+
+def regla_descuento_alto(factura: RasgosFactura):
+    """Salta si alguna línea tiene un descuento por encima del umbral."""
+    if factura.descuento_max_pct > UMBRAL_DESCUENTO_PCT:
+        return Hallazgo(
+            regla="descuento_alto",
+            motivo=f"Descuento de {factura.descuento_max_pct}% supera el {UMBRAL_DESCUENTO_PCT}%.",
+            peso=25,
+        )
+    return None
+
+
+def regla_duplicado(factura: RasgosFactura, historial: list[RasgosFactura]):
+    """Salta si otra factura tiene el mismo cliente, fecha y total."""
+    for otra in historial:
+        if (
+            otra.factura_id != factura.factura_id
+            and otra.cliente == factura.cliente
+            and otra.fecha == factura.fecha
+            and otra.total == factura.total
+        ):
+            return Hallazgo(
+                regla="duplicado",
+                motivo=f"Misma fecha, cliente y total que la factura {otra.factura_id}.",
+                peso=30,
+            )
+    return None
