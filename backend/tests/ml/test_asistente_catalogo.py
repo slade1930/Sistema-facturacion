@@ -18,13 +18,14 @@ def _linea(descripcion, cantidad, monto, producto_id=None):
     )
 
 
-def _factura(fid, fecha, total, estado, cliente, lineas=None):
+def _factura(fid, fecha, total, estado, cliente, lineas=None, en_revision=False):
     return SimpleNamespace(
         id=fid,
         numero_serie=f"FAC-{fid:04d}",
         fecha=fecha,
         total=Decimal(str(total)),
         estado=estado,
+        en_revision=en_revision,
         cliente_nombre=cliente,
         lineas=lineas or (),
     )
@@ -51,9 +52,10 @@ FACTURAS = (
         3,
         date(2026, 11, 2),
         "200.00",
-        EstadoFactura.EN_REVISION,
+        EstadoFactura.EMITIDA,
         "Beta",
         (_linea("Agua", 5, "50.00", 1),),
+        en_revision=True,
     ),
     _factura(
         4,
@@ -74,6 +76,7 @@ def repositorio(monkeypatch):
         db,
         *,
         estado=None,
+        en_revision=None,
         fecha_desde=None,
         fecha_hasta=None,
         cliente=None,
@@ -83,6 +86,7 @@ def repositorio(monkeypatch):
         vistos.append(
             {
                 "estado": estado,
+                "en_revision": en_revision,
                 "fecha_desde": fecha_desde,
                 "fecha_hasta": fecha_hasta,
                 "cliente": cliente,
@@ -98,6 +102,12 @@ def repositorio(monkeypatch):
                 for f in resultados
                 if (f.estado.value if hasattr(f.estado, "value") else str(f.estado))
                 == valor
+            ]
+        if en_revision is not None:
+            resultados = [
+                f
+                for f in resultados
+                if bool(getattr(f, "en_revision", False)) == en_revision
             ]
         if fecha_desde:
             resultados = [f for f in resultados if f.fecha >= fecha_desde]
@@ -156,7 +166,7 @@ def test_ventas_por_producto_agrupa_lineas(repositorio):
     assert "sin ITBMS ni portes" in resultado["nota"]
 
 
-def test_facturas_anuladas_y_en_revision_usan_el_estado(repositorio):
+def test_facturas_anuladas_usa_estado_y_revision_usa_la_columna(repositorio):
     anuladas = catalogo.facturas_anuladas(None)
     revision = catalogo.facturas_en_revision(None)
     assert anuladas["cantidad"] == 1
@@ -164,7 +174,8 @@ def test_facturas_anuladas_y_en_revision_usan_el_estado(repositorio):
     assert revision["cantidad"] == 1
     assert revision["datos"][0]["numero_serie"] == "FAC-0003"
     assert repositorio[0]["estado"] == EstadoFactura.ANULADA
-    assert repositorio[1]["estado"] == EstadoFactura.EN_REVISION
+    assert repositorio[1]["estado"] is None
+    assert repositorio[1]["en_revision"] is True
     assert anuladas["truncado"] is False
     assert revision["truncado"] is False
 

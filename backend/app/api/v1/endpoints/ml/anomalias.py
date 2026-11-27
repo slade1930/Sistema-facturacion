@@ -51,6 +51,7 @@ def evaluar_en_memoria(factura: Factura):
     prediccion = modelo.predecir(modelo.desde_factura(factura))
     if prediccion is None:
         return None
+    factura.en_revision = prediccion.en_revision
     factura.puntaje_anomalia = _puntaje_100(prediccion.puntaje)
     factura.motivo_anomalia = _motivo(prediccion)
     return prediccion

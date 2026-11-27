@@ -86,6 +86,7 @@ class FacturaRepository:
         db: Session,
         *,
         estado: Optional[EstadoFactura] = None,
+        en_revision: Optional[bool] = None,
         fecha_desde: Optional[date] = None,
         fecha_hasta: Optional[date] = None,
         cliente: Optional[str] = None,
@@ -96,6 +97,8 @@ class FacturaRepository:
 
         if estado is not None:
             stmt = stmt.where(Factura.estado == estado)
+        if en_revision is not None:
+            stmt = stmt.where(Factura.en_revision == en_revision)
         if fecha_desde is not None:
             stmt = stmt.where(Factura.fecha >= fecha_desde)
         if fecha_hasta is not None:

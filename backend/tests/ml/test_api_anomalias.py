@@ -42,6 +42,7 @@ def factura():
         total=Decimal("100.00"),
         itbms=Decimal("7.00"),
         estado=EstadoFactura.EMITIDA,
+        en_revision=False,
         puntaje_anomalia=None,
         motivo_anomalia=None,
         lineas=[SimpleNamespace(descuento_pct=Decimal("0.00"))],
@@ -78,6 +79,7 @@ def test_evaluar_con_modelo_escribe_puntaje_y_motivo_sin_tocar_estado(
     assert respuesta.resultado.motivo_anomalia
     assert factura.puntaje_anomalia == Decimal("53.77")
     assert isinstance(factura.puntaje_anomalia, Decimal)
+    assert factura.en_revision is True
     assert factura.motivo_anomalia == respuesta.resultado.motivo_anomalia
     assert factura.estado == EstadoFactura.EMITIDA
     assert db.confirmaciones == 1
@@ -99,6 +101,7 @@ def test_evaluar_sin_modelo_no_escribe_ni_cambia_estado(monkeypatch, factura):
     assert respuesta.resultado.en_revision is False
     assert respuesta.resultado.motivo_anomalia is None
     assert factura.puntaje_anomalia is None
+    assert factura.en_revision is False
     assert factura.motivo_anomalia is None
     assert factura.estado == EstadoFactura.EMITIDA
     assert db.confirmaciones == 1
@@ -124,8 +127,22 @@ def test_hook_escribe_sin_hacer_commit(monkeypatch, factura):
 
     assert endpoint.evaluar_al_crear(factura) is True
     assert factura.puntaje_anomalia == Decimal("21.00")
+    assert factura.en_revision is False
     assert factura.motivo_anomalia
     assert factura.estado == EstadoFactura.EMITIDA
+
+
+def test_hook_escribe_en_revision_sin_commit(monkeypatch, factura):
+    """El flag se guarda en la columna nueva, sin tocar el estado."""
+    monkeypatch.setattr(
+        modelo, "predecir", lambda rasgos: PrediccionAnomalia(0.82, True)
+    )
+    db = DB()
+
+    assert endpoint.evaluar_al_crear(factura) is True
+    assert factura.en_revision is True
+    assert factura.estado == EstadoFactura.EMITIDA
+    assert db.confirmaciones == 0
 
 
 def test_hook_sin_modelo_no_escribe(monkeypatch, factura):
@@ -133,6 +150,7 @@ def test_hook_sin_modelo_no_escribe(monkeypatch, factura):
 
     assert endpoint.evaluar_al_crear(factura) is False
     assert factura.puntaje_anomalia is None
+    assert factura.en_revision is False
     assert factura.motivo_anomalia is None
 
 
@@ -181,5 +199,6 @@ def test_crear_factura_sigue_funcionando_si_el_hook_falla(monkeypatch):
 
     assert creada is guardada["factura"]
     assert creada.estado == EstadoFactura.EMITIDA
+    assert creada.en_revision is False
     assert db.confirmaciones == 1
     assert db.refrescos == 1
