@@ -6,7 +6,10 @@ import httpx
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from pages.pedidos.convertir_a_factura import facturar, obtener_pedido
-from pages.pedidos.pedidos_pendientes import listar_pendientes
+from pages.pedidos.pedidos_pendientes import (
+    calcular_paginacion,
+    listar_pendientes,
+)
 from state.cliente_api import ClienteApi, ErrorApi
 
 
@@ -123,3 +126,29 @@ def test_facturar_pedido_cancelado_es_422():
             assert error.detail == "Un pedido cancelado no se puede facturar."
         else:
             raise AssertionError("Se esperaba ErrorApi")
+
+
+def test_paginacion_sin_pedidos():
+    assert calcular_paginacion(0, 1) == (1, 0, 0)
+
+
+def test_paginacion_con_20_pedidos():
+    assert calcular_paginacion(20, 1) == (1, 0, 20)
+
+
+def test_paginacion_con_21_pedidos():
+    assert calcular_paginacion(21, 1) == (1, 0, 20)
+    assert calcular_paginacion(21, 2) == (2, 20, 21)
+
+
+def test_paginacion_con_40_pedidos():
+    assert calcular_paginacion(40, 2) == (2, 20, 40)
+
+
+def test_paginacion_con_41_pedidos():
+    assert calcular_paginacion(41, 3) == (3, 40, 41)
+
+
+def test_paginacion_limita_pagina_fuera_de_rango():
+    assert calcular_paginacion(41, 5) == (3, 40, 41)
+    assert calcular_paginacion(41, 0) == (1, 0, 20)

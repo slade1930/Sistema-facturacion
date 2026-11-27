@@ -1,3 +1,4 @@
+
 from typing import Any
 
 from nicegui import ui
@@ -53,5 +54,5 @@ def pagina_pedido_exitoso(pedido_id: int | None = None) -> None:
                 ui.link("Ver pedidos por facturar", "/pedidos/por-facturar")
                 ui.link(
                     "Convertir a factura",
-                    f"/pedidos/convertir-a-factura?id={pedido['id']}",
+                    f"/pedidos/convertir-a-factura?pedido_id={pedido['id']}",
                 )

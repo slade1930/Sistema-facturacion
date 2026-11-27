@@ -1,3 +1,4 @@
+
 from typing import Any
 
 from nicegui import ui
@@ -47,10 +48,12 @@ def pagina_convertir(pedido_id: int | None = None) -> None:
         pedido_card.clear()
         resultado.clear()
         texto = (entrada.value or "").strip()
+
         if not texto.isdigit():
             with mensajes:
                 ui.label("Ingresá un ID numérico de pedido.").classes("text-negative")
             return
+
         try:
             pedido = obtener_pedido(cliente, int(texto))
         except ErrorApi as error:
@@ -58,11 +61,20 @@ def pagina_convertir(pedido_id: int | None = None) -> None:
             return
 
         actual["pedido"] = pedido
+
         with pedido_card:
+            ui.button(
+                "Volver al detalle",
+                on_click=lambda: ui.navigate.to(
+                    f"/pedidos/detalle?pedido_id={pedido['id']}"
+                ),
+            ).classes("mb-2")
+
             with ui.card().classes("w-full"):
                 ui.label(
                     f"Pedido #{_valor(pedido, 'id')} · {_valor(pedido, 'estado')}"
                 ).classes("text-h6")
+
                 campos = (
                     ("Cliente ID", "cliente_id"),
                     ("Total estimado", "total_estimado"),
@@ -70,18 +82,25 @@ def pagina_convertir(pedido_id: int | None = None) -> None:
                     ("Factura generada", "factura_generada_id"),
                     ("Creado", "fecha_creacion"),
                 )
+
                 for etiqueta, campo in campos:
                     with ui.row().classes("w-full justify-between"):
                         ui.label(f"{etiqueta}:").classes("text-grey")
                         ui.label(_valor(pedido, campo))
-                ui.button("Facturar pedido", on_click=lambda: convertir()).classes("mt-2")
+
+                ui.button(
+                    "Facturar pedido",
+                    on_click=lambda: convertir(),
+                ).classes("mt-2")
 
     def convertir() -> None:
         pedido = actual["pedido"]
         if pedido is None:
             return
+
         mensajes.clear()
         resultado.clear()
+
         try:
             factura = facturar(cliente, int(pedido["id"]))
         except ErrorApi as error:
@@ -89,17 +108,21 @@ def pagina_convertir(pedido_id: int | None = None) -> None:
             return
 
         sesion.ultima_factura = factura
+
         with resultado:
             with ui.card().classes("w-full"):
                 ui.label(
                     f"Factura {_valor(factura, 'numero_serie')} creada"
                 ).classes("text-positive text-h6")
+
                 with ui.row().classes("w-full justify-between"):
                     ui.label("Total").classes("text-grey")
                     ui.label(_valor(factura, "total"))
+
                 with ui.row().classes("w-full justify-between"):
                     ui.label("Estado").classes("text-grey")
                     ui.label(_valor(factura, "estado"))
+
                 ui.link(
                     "Ver factura",
                     f"/facturacion/detalle?id={factura['id']}",

@@ -1,3 +1,4 @@
+
 from typing import Any
 
 from nicegui import ui
@@ -61,10 +62,12 @@ def pagina_detalle_pedido(pedido_id: int | None = None) -> None:
         mensajes.clear()
         contenido.clear()
         texto = (entrada.value or "").strip()
+
         if not texto.isdigit():
             with mensajes:
                 ui.label("Ingresá un ID numérico de pedido.").classes("text-negative")
             return
+
         try:
             pedido = obtener_pedido(cliente, int(texto))
         except ErrorApi as error:
@@ -72,6 +75,11 @@ def pagina_detalle_pedido(pedido_id: int | None = None) -> None:
             return
 
         with contenido:
+            ui.button(
+                "Volver a pedidos pendientes",
+                on_click=lambda: ui.navigate.to("/pedidos/por-facturar"),
+            ).classes("mb-2")
+
             with ui.card().classes("w-full"):
                 ui.label(f"Pedido #{_valor(pedido, 'id')}").classes("text-h6")
                 campos = (
@@ -82,27 +90,33 @@ def pagina_detalle_pedido(pedido_id: int | None = None) -> None:
                     ("Creado", "fecha_creacion"),
                     ("Actualizado", "fecha_actualizacion"),
                 )
+
                 for etiqueta, clave in campos:
                     with ui.row().classes("w-full justify-between"):
                         ui.label(f"{etiqueta}:").classes("text-grey")
                         ui.label(_valor(pedido, clave))
+
                 notas = _valor(pedido, "notas")
                 if notas:
                     ui.label(f"Notas: {notas}").classes("text-caption")
 
             ui.label("Líneas").classes("text-h6 mt-2")
             lineas = resumen_lineas(pedido)
+
             if not lineas:
                 ui.label("El pedido no tiene líneas.").classes("text-grey")
+
             for linea in lineas:
                 with ui.card().classes("w-full"):
                     ui.label(
                         f"{linea['orden']}. Producto #{linea['producto_id']} · "
                         f"{linea['presentacion']}"
                     ).classes("text-subtitle1")
+
                     with ui.row().classes("w-full justify-between"):
                         ui.label("Cantidad").classes("text-grey")
                         ui.label(linea["cantidad"])
+
                     with ui.row().classes("w-full justify-between"):
                         ui.label("Subtotal").classes("text-grey")
                         ui.label(linea["subtotal"])
@@ -111,7 +125,7 @@ def pagina_detalle_pedido(pedido_id: int | None = None) -> None:
                 ui.button(
                     "Convertir a factura",
                     on_click=lambda: ui.navigate.to(
-                        f"/pedidos/convertir-a-factura?id={pedido['id']}"
+                        f"/pedidos/convertir-a-factura?pedido_id={pedido['id']}"
                     ),
                 )
 
