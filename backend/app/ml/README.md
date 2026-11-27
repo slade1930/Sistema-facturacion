@@ -1,6 +1,6 @@
 # ML — estado real y reparto del equipo
 
-Gente, acá ya no hay un esqueleto sin más: **los datos de ejemplo están listos y probados**, el Módulo 4 tiene catálogo, línea base, red local, evaluación y endpoint del asistente, y los Módulos 1 (anomalías) y 2 (pronóstico) ya están integrados en `desarrollo`. Recomendaciones se integra en el siguiente PR. Este archivo es la fuente de verdad del equipo.
+Gente, acá ya no hay un esqueleto sin más: **los datos de ejemplo están listos y probados**, el Módulo 4 tiene catálogo, línea base, red local, evaluación y endpoint del asistente, y los Módulos 1 (anomalías), 2 (pronóstico) y 3 (recomendaciones: reglas y autoencoder) ya están en la rama de integración. Falta registrar el endpoint de recomendaciones. Este archivo es la fuente de verdad del equipo.
 
 ## 1. Estado real
 
@@ -8,9 +8,9 @@ Listo:
 
 - `datasets/generar_datos.py`: generador reproducible, semilla fija `20261126`, 30 meses de historia, estacionalidad y casos raros inyectados.
 - 5 CSV en `datasets/generados/`: **1000 facturas**, **2521 líneas de factura**, **400 pedidos**, **830 líneas de pedido** y **55 etiquetas de anomalías**.
-- Pruebas en `tests/ml/` para el generador, el Módulo 4 (asistente), el Módulo 1 (anomalías) y el Módulo 2 (pronóstico); el total exacto se verifica en la corrida final de cada PR.
+- Pruebas en `tests/ml/` para el generador, el Módulo 4 (asistente), el Módulo 1 (anomalías), el Módulo 2 (pronóstico) y el Módulo 3 (recomendaciones); el total exacto se verifica en la corrida final de cada PR.
 
-Ya implementado del Módulo 4: `asistente/catalogo.py`, `asistente/intenciones.py`, `asistente/frases_entrenamiento.py`, `modelos/asistente.py`, `entrenamiento/entrenar_asistente.py`, `evaluacion/asistente.py` y `api/v1/endpoints/ml/asistente.py`. Ya implementado del Módulo 1: `features/anomalias.py`, `reglas/anomalias.py`, `modelos/anomalias.py`, `entrenamiento/entrenar_anomalias.py`, `evaluacion/anomalias.py` y `api/v1/endpoints/ml/anomalias.py`. Ya implementado del Módulo 2: `features/pronostico.py`, `modelos/pronostico.py`, `modelos/pronostico_lstm.py`, `entrenamiento/entrenar_pronostico.py`, `entrenamiento/entrenar_pronostico_lstm.py`, `evaluacion/pronostico.py` y `api/v1/endpoints/ml/pronostico.py`. Sigue por integrar recomendaciones. La red local del asistente se entrena con `python -m app.ml.entrenamiento.entrenar_asistente` y queda en `backend/ml_models/asistente.pt` (fuera de Git).
+Ya implementado del Módulo 4: `asistente/catalogo.py`, `asistente/intenciones.py`, `asistente/frases_entrenamiento.py`, `modelos/asistente.py`, `entrenamiento/entrenar_asistente.py`, `evaluacion/asistente.py` y `api/v1/endpoints/ml/asistente.py`. Ya implementado del Módulo 1: `features/anomalias.py`, `reglas/anomalias.py`, `modelos/anomalias.py`, `entrenamiento/entrenar_anomalias.py`, `evaluacion/anomalias.py` y `api/v1/endpoints/ml/anomalias.py`. Ya implementado del Módulo 2: `features/pronostico.py`, `modelos/pronostico.py`, `modelos/pronostico_lstm.py`, `entrenamiento/entrenar_pronostico.py`, `entrenamiento/entrenar_pronostico_lstm.py`, `evaluacion/pronostico.py` y `api/v1/endpoints/ml/pronostico.py`. Ya implementado del Módulo 3: `features/recomendaciones.py`, `reglas/recomendaciones.py`, `modelos/recomendaciones.py`, `entrenamiento/entrenar_recomendaciones.py` y `evaluacion/recomendaciones.py`; el endpoint aún es stub y se registra en el siguiente PR. La red local del asistente se entrena con `python -m app.ml.entrenamiento.entrenar_asistente` y queda en `backend/ml_models/asistente.pt` (fuera de Git).
 
 Cómo generar y validar (dentro del contenedor):
 
@@ -147,3 +147,22 @@ python -m app.ml.entrenamiento.entrenar_pronostico_lstm --sin-guardar
 ```
 
 Los artefactos entrenados van en `backend/ml_models/` (fuera de Git). La LSTM pide como máximo 6 meses; si se pide más, el endpoint devuelve `"sin predicción"` sin romper.
+
+## 12. Recomendaciones (Módulo 3): reglas y autoencoder
+
+Las reglas de Jesús funcionan sin entrenar: línea base "más vendidos", reglas de asociación con soporte/confianza/lift en pandas puro (sin `mlxtend`) y respaldo a "más vendidos" cuando no hay co-ocurrencias. El autoencoder de makirvy es una red chica en PyTorch CPU sobre la matriz cliente-producto (presencia-normalizada, semilla fija `20261126`, 16 neuronas ocultas y 120 épocas). Reconstruye la cesta actual y puntúa los productos que el cliente aún no tiene. Sin torch o sin `recomendaciones.pt`, las reglas siguen respondiendo.
+
+Evaluación leave-one-out (esconder un producto por cesta), 951 casos, k=5, sobre los CSV de ejemplo:
+
+| Evaluación | Hit rate | Precision@5 |
+|---|---:|---:|
+| Más vendidos (línea base) | 12,09 % | 2,42 % |
+| Autoencoder | 12,41 % | 2,48 % |
+
+La diferencia es chica con datos sintéticos: el autoencoder queda como sugerencia y la línea base sigue siendo el respaldo. Para reproducirlo:
+
+```
+python -m app.ml.entrenamiento.entrenar_recomendaciones --sin-guardar
+```
+
+El artefacto se guarda en `backend/ml_models/recomendaciones.pt` (fuera de Git). El endpoint `GET /ml/recomendaciones` se registra en el siguiente PR.
