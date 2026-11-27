@@ -3,6 +3,7 @@ from decimal import Decimal
 
 from app.ml.features.anomalias import RasgosFactura
 from app.ml.reglas.anomalias import (
+    evaluar_factura,
     percentil,
     regla_anulaciones_repetidas,
     regla_descuento_alto,
@@ -93,3 +94,31 @@ def test_anulaciones_de_otro_cliente_no_cuentan():
 def test_anulaciones_no_se_cuenta_a_si_misma():
     base = _factura(1, 100, anulada=True)
     assert regla_anulaciones_repetidas(base, [base, _factura(2, 100, anulada=True)]) is None
+def test_factura_normal_puntaje_cero():
+    resultado = evaluar_factura(_factura(1, 100), [])
+    assert resultado.puntaje == 0
+    assert resultado.hallazgos == []
+
+
+def test_una_regla_suma_su_peso():
+    resultado = evaluar_factura(_factura(1, 100, descuento="50"), [])
+    assert resultado.puntaje == 25
+    assert [h.regla for h in resultado.hallazgos] == ["descuento_alto"]
+
+
+def test_dos_reglas_suman_sus_pesos():
+    resultado = evaluar_factura(_factura(1, 100, descuento="50"), [_factura(2, 100)])
+    assert resultado.puntaje == 55  # 25 del descuento + 30 del duplicado
+
+
+def test_todas_las_reglas_se_topan_en_100():
+    historial = [_factura(i, 100 + i) for i in range(30)]
+    historial.append(_factura(100, 5000))  # mismo total: provoca el duplicado
+    historial.append(_factura(101, 100, anulada=True))
+    historial.append(_factura(102, 100, anulada=True))
+    factura = _factura(99, 5000, descuento="50", anulada=True)
+
+    resultado = evaluar_factura(factura, historial)
+
+    assert len(resultado.hallazgos) == 4  # los pesos suman 115
+    assert resultado.puntaje == 100

@@ -97,3 +97,28 @@ def regla_anulaciones_repetidas(factura: RasgosFactura, historial: list[RasgosFa
             peso=20,
         )
     return None
+PUNTAJE_MAXIMO = 100
+
+
+@dataclass(frozen=True)
+class ResultadoAnomalia:
+    factura_id: int
+    puntaje: int  # de 0 a 100
+    hallazgos: list[Hallazgo]
+
+
+def evaluar_factura(factura: RasgosFactura, historial: list[RasgosFactura]) -> ResultadoAnomalia:
+    """Corre las cuatro reglas y suma los pesos de las que saltan (tope 100)."""
+    resultados = [
+        regla_monto_alto(factura, historial),
+        regla_descuento_alto(factura),
+        regla_duplicado(factura, historial),
+        regla_anulaciones_repetidas(factura, historial),
+    ]
+    hallazgos = [h for h in resultados if h is not None]
+    puntaje = min(sum(h.peso for h in hallazgos), PUNTAJE_MAXIMO)
+    return ResultadoAnomalia(
+        factura_id=factura.factura_id,
+        puntaje=puntaje,
+        hallazgos=hallazgos,
+    )
