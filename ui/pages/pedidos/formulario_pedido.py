@@ -1,3 +1,4 @@
+
 from typing import Any
 
 from nicegui import ui
@@ -51,12 +52,12 @@ def construir_pedido(
     lineas = construir_lineas(carrito, calculo)
     if not lineas:
         raise ValueError("El carrito está vacío.")
-    notas_limpas = (notas or "").strip() or None
+    notas_limpias = (notas or "").strip() or None
     return {
         "cliente_id": int(cliente_id),
         "estado": "pendiente",
         "total_estimado": str(calculo.get("subtotal", "0")),
-        "notas": notas_limpas,
+        "notas": notas_limpias,
         "lineas": lineas,
     }
 
@@ -150,7 +151,7 @@ def pagina_formulario_pedido() -> None:
                     ui.label(str(item)).classes("text-caption text-negative")
             return
         sesion.carrito.clear()
-        ui.navigate.to(f"/pedidos/exitoso?id={pedido['id']}")
+        ui.navigate.to(f"/pedidos/exitoso?pedido_id={pedido['id']}")
 
     with ui.row().classes("gap-2 my-2"):
         ui.button("Crear pedido", on_click=guardar)
