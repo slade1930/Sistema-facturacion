@@ -9,6 +9,8 @@ from pages.facturacion import detalle as _pagina_detalle
 from pages.facturacion import historial as _pagina_historial
 from pages.facturacion import nueva as _pagina_nueva
 from pages.pedidos import convertir_a_factura as _pagina_convertir
+from pages.pedidos import formulario_pedido as _pagina_formulario
+from pages.pedidos import pedido_exitoso as _pagina_exitoso
 from pages.pedidos import pedidos_pendientes as _pagina_pedidos
 from pages.verificar import verificar as _pagina_verificar
 from state.cliente_api import ClienteApi, ErrorApi
