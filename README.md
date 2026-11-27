@@ -63,7 +63,9 @@ Solo el Equipo 1 crea migraciones; los módulos de ML las piden. Ver [base de da
 
 ```bash
 cd backend
-$env:SQLALCHEMY_NO_CEXTENSIONS='1'
+# Si aparecen bloqueos de .pyd:
+#   Windows PowerShell: $env:SQLALCHEMY_NO_CEXTENSIONS='1'
+#   Linux/macOS:        export SQLALCHEMY_NO_CEXTENSIONS=1
 python -m pytest tests -q
 ```
 
@@ -76,7 +78,7 @@ Cada equipo trabaja en su rama y trae lo nuevo con `git merge desarrollo`. Prohi
 ## Tecnologías
 
 - Backend: Python, FastAPI, SQLAlchemy, Alembic.
-- Frontend: NiceGUI.
+- Interfaz: Swagger UI de FastAPI (NiceGUI está planeado; `ui/` aún vacío).
 - Base de datos: PostgreSQL.
 - Infraestructura: Docker, Docker Compose.
 - Pruebas: pytest.
