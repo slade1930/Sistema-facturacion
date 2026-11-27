@@ -8,7 +8,7 @@ Listo:
 
 - `datasets/generar_datos.py`: generador reproducible, semilla fija `20261126`, 30 meses de historia, estacionalidad y casos raros inyectados.
 - 5 CSV en `datasets/generados/`: **1000 facturas**, **2521 líneas de factura**, **400 pedidos**, **830 líneas de pedido** y **55 etiquetas de anomalías**.
-- 21 pruebas en `tests/ml/` (1 de entorno, 1 de estructura y 19 del generador).
+- 39 pruebas en `tests/ml/` (1 de entorno, 1 de estructura, 19 del generador y 18 de reglas de recomendaciones).
 
 Por hacer: `reglas/`, `features/`, `modelos/`, `entrenamiento/`, `evaluacion/`, `inferencia/` y los 4 routers de `api/v1/endpoints/ml/` son stubs (docstrings) o no existen todavía. Ningún modelo está entrenado.
 
@@ -97,3 +97,21 @@ El Módulo 4 depende de los módulos 1 a 3 (en revisión, anomalías) y de la re
 ## 9. Orden de cada módulo
 
 features o reglas → modelos → entrenamiento → evaluación → endpoint → pruebas → README → PR hacia `ml`.
+
+## 10. Métricas — Módulo 3 (recomendaciones)
+
+### Jesús — línea base "más vendidos" y reglas de asociación
+
+- Implementado en `features/recomendaciones.py` (cestas, matriz cliente-producto y conteos) y `reglas/recomendaciones.py` (más vendidos, soporte/confianza/lift y recomendación con respaldo). Sin dependencias nuevas: solo pandas/numpy.
+- **Línea base "más vendidos"** sobre el dataset de ejemplo (1000 facturas + 400 pedidos = 1289 cestas, 3049 pares leave-one-out):
+
+| k | hit rate | precision@k |
+|---|---|---|
+| 1 | 0.029 | 0.029 |
+| 3 | 0.059 | 0.020 |
+| 5 | 0.131 | 0.026 |
+| 10 | 0.250 | 0.025 |
+
+- Solo con facturas (sin pedidos): hit rate@5 = 0.121, precision@5 = 0.024.
+- **Reglas de asociación** (soporte ≥ 0.5 %, confianza ≥ 5 %, lift ≥ 0): 260 reglas; 246 con lift ≥ 1 y 202 con lift > 1.2. Con umbrales estrictos (soporte ≥ 1 %, confianza ≥ 5 %, lift ≥ 1) no hay reglas: el generador sortea productos casi al azar y el respaldo a "más vendidos" es el que manda. Esto es coherente con la filosofía del módulo: las reglas sugieren cuando hay señal y nunca bloquean.
+- Evaluación de referencia implementada en `reglas/recomendaciones.py::evaluar_mas_vendidos` (leave-one-out por cesta); `mdeh25-droid` la usa como piso en `evaluacion/recomendaciones.py`.
