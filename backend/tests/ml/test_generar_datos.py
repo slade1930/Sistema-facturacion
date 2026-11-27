@@ -107,8 +107,16 @@ def test_escritura_csv_en_carpeta_generados(tmp_path):
         "lineas_pedido_ejemplo.csv",
         "etiquetas_anomalias.csv",
     } <= nombres
-    # La carpeta real también queda ignorada por Git.
-    gitignore = (Path(__file__).resolve().parents[3] / ".gitignore").read_text()
+    # Gente, en Docker vive en /app y no hay .gitignore: lo busco hacia arriba.
+    padre_gitignore = None
+    for padre in Path(__file__).resolve().parents:
+        candidato = padre / ".gitignore"
+        if candidato.is_file():
+            padre_gitignore = candidato
+            break
+    if padre_gitignore is None:
+        pytest.skip("No hay .gitignore sobre esta ruta (en Docker /app no lo trae).")
+    gitignore = padre_gitignore.read_text()
     assert "backend/app/ml/datasets/generados/" in gitignore
 
 
