@@ -123,5 +123,5 @@ features o reglas → modelos → entrenamiento → evaluación → endpoint →
 - `POST /api/v1/ml/anomalias/evaluar/{factura_id}` está registrado en `app/api/v1/router.py` y protegido con `X-API-Key`.
 - `en_revision` es una columna booleana propia (migración `20261127_0004`), separada del valor `en_revision` del enum. El modelo solo sugiere: nunca cambia `estado` `emitida`/`anulada`.
 - `serie_repetida` se detecta con `FacturaRepository.existe_numero_serie()` y se pasa a `modelo.desde_factura(factura, serie_repetida=...)` tanto al crear como al evaluar. El hook de creación es best-effort: si falla, la factura se crea igual.
-- Sin `backend/ml_models/anomalias.pkl`, el endpoint responde `evaluado: false` y `resultado: null`; la app sigue funcionando.
+- Sin `backend/ml_models/anomalias.pkl`, el endpoint responde `evaluado: false`, `modelo: null` y `resultado` con `factura_id`, puntaje/en_revision/motivo en `null`/`false`; la app sigue funcionando.
 - `catalogo.facturas_en_revision()` filtra por la columna booleana, no por el enum, para encontrar las facturas marcadas por el modelo.
