@@ -1,6 +1,6 @@
 # ML — estado real y reparto del equipo
 
-Gente, acá ya no hay un esqueleto sin más: **los datos de ejemplo están listos y probados** y el Módulo 4 ya tiene catálogo, línea base, red local, evaluación y endpoint del asistente; lo demás (reglas, features, inferencia, los otros endpoints y los otros modelos) está por hacer. Este archivo es la fuente de verdad del equipo.
+Gente, acá ya no hay un esqueleto sin más: **los datos de ejemplo están listos y probados**, el Módulo 4 ya tiene catálogo, línea base, red local, evaluación y endpoint del asistente, y el Módulo 1 ya tiene reglas base y features de anomalías. Lo demás (inferencia, los otros endpoints y los otros modelos) está por hacer. Este archivo es la fuente de verdad del equipo.
 
 ## 1. Estado real
 
@@ -8,9 +8,9 @@ Listo:
 
 - `datasets/generar_datos.py`: generador reproducible, semilla fija `20261126`, 30 meses de historia, estacionalidad y casos raros inyectados.
 - 5 CSV en `datasets/generados/`: **1000 facturas**, **2521 líneas de factura**, **400 pedidos**, **830 líneas de pedido** y **55 etiquetas de anomalías**.
-- 121 pruebas en `tests/ml/` (120 pasan y 1 se salta: 1 de entorno, 1 de estructura, 19 del generador y 100 del Módulo 4).
+- 147 pruebas en `tests/ml/` (146 pasan y 1 se salta: 1 de entorno, 1 de estructura, 19 del generador, 100 del Módulo 4 y 26 de las reglas de anomalías).
 
-Ya implementado del Módulo 4: `asistente/catalogo.py`, `asistente/intenciones.py`, `asistente/frases_entrenamiento.py`, `modelos/asistente.py`, `entrenamiento/entrenar_asistente.py`, `evaluacion/asistente.py` y `api/v1/endpoints/ml/asistente.py`. Por hacer: `reglas/`, `features/`, `inferencia/` y los otros 3 routers de `api/v1/endpoints/ml/` siguen siendo stubs (docstrings) o no existen todavía; lo mismo los otros módulos de `evaluacion/`. El único modelo entrenable hoy es la red local del asistente: se entrena con `python -m app.ml.entrenamiento.entrenar_asistente` y queda en `backend/ml_models/asistente.pt` (fuera de Git).
+Ya implementado del Módulo 4: `asistente/catalogo.py`, `asistente/intenciones.py`, `asistente/frases_entrenamiento.py`, `modelos/asistente.py`, `entrenamiento/entrenar_asistente.py`, `evaluacion/asistente.py` y `api/v1/endpoints/ml/asistente.py`. Del Módulo 1: `features/anomalias.py` y `reglas/anomalias.py`. Por hacer: `inferencia/`, los otros routers de `api/v1/endpoints/ml/` (sigue stubs o no existen) y los otros módulos de `evaluacion/`, modelos y entrenamiento. El único modelo entrenable hoy es la red local del asistente: se entrena con `python -m app.ml.entrenamiento.entrenar_asistente` y queda en `backend/ml_models/asistente.pt` (fuera de Git).
 
 Cómo generar y validar (dentro del contenedor):
 
@@ -54,6 +54,53 @@ También se pueden correr con `docker compose exec -T backend python -m app.ml.d
 - `puntaje_anomalia` va en escala **0 a 100**.
 - El módulo escribe **solo** `en_revision`, `puntaje_anomalia` y `motivo_anomalia`; **no cambia** el `estado` `emitida`/`anulada`.
 - El umbral lo fija Flinn con las métricas y lo documenta acá.
+
+### 6.1. Antony — Reglas base de detección de anomalías
+
+**Estado:** Implementado y probado.
+
+Se desarrollaron reglas para identificar posibles anomalías en las facturas sin depender de un modelo entrenado.
+
+**Características implementadas:**
+
+- **Monto alto:** identifica facturas cuyo total supera el percentil 95 del historial. Requiere al menos 20 facturas para realizar la evaluación.
+- **Descuento alto:** identifica descuentos superiores al 30%.
+- **Facturas duplicadas:** detecta coincidencias de cliente, fecha y total, excluyendo la misma factura. El cliente se normaliza (acentos, mayúsculas, puntuación y sufijos como `S.A.`/`SRL`), así `Acme` y `acme s.a.` cuentan como el mismo.
+- **Anulaciones repetidas:** identifica clientes que acumulan tres o más facturas anuladas, con la misma normalización de cliente.
+
+**Puntaje de anomalía:**
+
+Cada regla aporta un peso al resultado:
+
+| Regla | Peso |
+|---|---:|
+| Monto alto | 40 |
+| Descuento alto | 25 |
+| Factura duplicada | 30 |
+| Anulaciones repetidas | 20 |
+
+El puntaje final se limita a una escala de 0 a 100.
+
+**Pruebas realizadas:**
+
+- Pruebas unitarias de las cuatro reglas (26 en `test_reglas_anomalias.py`).
+- Pruebas de combinación de hallazgos y cálculo del puntaje.
+- Pruebas de `rasgos_de_factura()` con una `Factura` real de SQLAlchemy y sus líneas.
+- Suite completa del backend: 425 pruebas aprobadas y 1 omitida.
+
+**Evaluación y métricas:**
+
+Las reglas funcionan sin necesidad de entrenar un modelo. La comparación de precisión, recall y F1 contra las 55 etiquetas de anomalías queda pendiente de la evaluación del módulo, a cargo de Flinn. No se reportan métricas de clasificación todavía.
+
+**Revisión de seguridad:**
+
+Las reglas trabajan con datos en memoria, no consultan directamente la base de datos ni utilizan servicios externos. No bloquean facturas ni modifican su estado.
+
+**Archivos implementados:**
+
+- `backend/app/ml/features/anomalias.py`
+- `backend/app/ml/reglas/anomalias.py`
+- `backend/tests/ml/test_reglas_anomalias.py`
 
 ## 7. Ramas de trabajo
 
