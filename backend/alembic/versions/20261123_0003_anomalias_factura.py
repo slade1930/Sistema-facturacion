@@ -18,9 +18,11 @@ depends_on = None
 
 
 def upgrade():
-    # PostgreSQL 12+ permite ADD VALUE dentro de transaccion. El valor nuevo
-    # no se usa como literal de enum aca, solo se compara como texto.
-    op.execute("ALTER TYPE estado_factura ADD VALUE IF NOT EXISTS 'en_revision'")
+    # Gente, primero el valor del ENUM y con autocommit_block para que no se
+    # enrede con la transacción de las columnas y los CHECK que lo usan. El
+    # valor nuevo no se usa como literal aca, solo se compara como texto.
+    with op.get_context().autocommit_block():
+        op.execute("ALTER TYPE estado_factura ADD VALUE IF NOT EXISTS 'en_revision'")
 
     op.add_column(
         "factura",
