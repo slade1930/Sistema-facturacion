@@ -210,6 +210,49 @@ def test_filtro_por_nombre_es_exacto(monkeypatch):
     assert resultado["total"] == "10.00"
 
 
+def test_normalizar_cliente_ignora_puntuacion_y_acentos():
+    assert catalogo.normalizar_cliente("Acme S.A.") == "acme s a"
+    assert catalogo.normalizar_cliente("  Cía. Beta  ") == "cia beta"
+
+
+@pytest.mark.parametrize(
+    "consulta, guardado, esperado",
+    [
+        ("acme", "Acme S.A.", True),
+        ("acme s.a", "Acme S.A.", True),
+        ("beta", "Beta SRL", True),
+        ("acme", "Acme Sur", False),
+        ("acme sur", "Acme S.A.", False),
+        ("acme s.a", "Acme", False),
+        ("", "Acme", False),
+    ],
+)
+def test_clientes_coinciden(consulta, guardado, esperado):
+    assert catalogo.clientes_coinciden(consulta, guardado) is esperado
+
+
+def test_razon_social_compuesta_no_queda_vacia(monkeypatch):
+    datos = (
+        _factura(1, date(2026, 10, 5), "10.00", EstadoFactura.EMITIDA, "Acme S.A."),
+        _factura(2, date(2026, 10, 6), "20.00", EstadoFactura.EMITIDA, "Acme Sur"),
+    )
+    monkeypatch.setattr(
+        catalogo.FacturaRepository, "listar", staticmethod(lambda db, **kw: list(datos))
+    )
+    resultado = catalogo.ventas_por_cliente(None, cliente="acme")
+    assert [fila["cliente"] for fila in resultado["datos"]] == ["Acme S.A."]
+    assert resultado["total"] == "10.00"
+    assert resultado["truncado"] is False
+
+    resultado = catalogo.ventas_por_cliente(None, cliente="acme s.a")
+    assert [fila["cliente"] for fila in resultado["datos"]] == ["Acme S.A."]
+    assert resultado["total"] == "10.00"
+
+    resultado = catalogo.ventas_por_cliente(None, cliente="acme sur")
+    assert [fila["cliente"] for fila in resultado["datos"]] == ["Acme Sur"]
+    assert resultado["total"] == "20.00"
+
+
 def test_truncamiento_se_reporta(monkeypatch, repositorio):
     monkeypatch.setattr(catalogo, "LIMITE", 2)
     resultado = catalogo.ventas_por_mes(None)

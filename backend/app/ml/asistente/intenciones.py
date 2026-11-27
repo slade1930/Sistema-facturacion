@@ -38,10 +38,38 @@ _PATRON_RANGO = re.compile(
 _PATRON_AnioMes = re.compile(r"\b(20\d{2})[-/](\d{1,2})\b")
 _PATRON_ANIO = re.compile(r"\b(20\d{2})\b")
 _PATRON_CLIENTE = re.compile(r"\bcliente\s*(?:n[°ºo]?\.?\s*)?(\d+)\b")
-_PATRON_CLIENTE_TEXTO = re.compile(r"\bcliente\s+([a-z][a-z0-9_-]*)\b")
+_PATRON_CLIENTE_TEXTO = re.compile(
+    r"\bcliente\s+([a-z0-9]+(?:\.[a-z0-9]+)*\.?"
+    r"(?:\s+[a-z0-9]+(?:\.[a-z0-9]+)*\.?){0,3})"
+)
 _PATRON_TOP = re.compile(r"\btop\s*(\d+)\b")
 PALABRAS_CLIENTE_IGNORADAS = frozenset(
-    {"de", "del", "por", "en", "el", "la", "los", "las", "un", "una", "con"}
+    {
+        "de",
+        "del",
+        "por",
+        "en",
+        "el",
+        "la",
+        "los",
+        "las",
+        "un",
+        "una",
+        "con",
+        "a",
+        "y",
+        "para",
+        "durante",
+        "este",
+        "esta",
+        "estos",
+        "estas",
+        "mes",
+        "ano",
+        "anio",
+        "hoy",
+        "ayer",
+    }
 )
 
 REGLAS = (
@@ -132,6 +160,20 @@ def extraer_fechas(texto: str, hoy: date | None = None) -> dict:
     return parametros
 
 
+def _extraer_cliente_texto(texto):
+    encontrado = _PATRON_CLIENTE_TEXTO.search(texto)
+    if encontrado is None:
+        return None
+    palabras = []
+    for palabra in encontrado.group(1).split():
+        if palabra.strip(".").casefold() in PALABRAS_CLIENTE_IGNORADAS:
+            break
+        palabras.append(palabra)
+    if not palabras:
+        return None
+    return " ".join(palabras).rstrip(".")
+
+
 def extraer_parametros(texto: str, hoy: date | None = None) -> dict:
     parametros = extraer_fechas(texto, hoy)
     if FECHA_INVALIDA in parametros:
@@ -141,9 +183,9 @@ def extraer_parametros(texto: str, hoy: date | None = None) -> dict:
     if cliente:
         parametros["cliente_id"] = int(cliente.group(1))
     else:
-        nombre = _PATRON_CLIENTE_TEXTO.search(texto)
-        if nombre and nombre.group(1) not in PALABRAS_CLIENTE_IGNORADAS:
-            parametros["cliente"] = nombre.group(1)
+        nombre = _extraer_cliente_texto(texto)
+        if nombre:
+            parametros["cliente"] = nombre
 
     top = _PATRON_TOP.search(texto)
     if top:

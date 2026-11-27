@@ -108,6 +108,14 @@ def test_entrenamiento_es_reproducible():
     )
 
 
+def test_ajustar_valida_entradas():
+    pytest.importorskip("torch")
+    assert modelo.ajustar([], []) is None
+    assert modelo.ajustar(["ventas por mes"], []) is None
+    assert modelo.ajustar(["ventas por mes"], ["no_existe"]) is None
+    assert modelo.ajustar(["   "], ["ventas_por_mes"]) is None
+
+
 def test_guardar_usa_solo_el_nombre_del_archivo(tmp_path, monkeypatch):
     pytest.importorskip("torch")
     monkeypatch.setattr(modelo, "CARPETA_MODELOS", tmp_path)
@@ -156,6 +164,12 @@ def test_modelo_no_peor_que_la_linea_base(modelo_entrenado):
         ("ventas de este año", "ventas_por_mes", {"anio": 2026}),
         ("ventas por cliente Acme", "ventas_por_cliente", {"cliente": "acme"}),
         ("Ventas del cliente 3", "ventas_por_cliente", {"cliente_id": 3}),
+        ("ventas por cliente Acme S.A.", "ventas_por_cliente", {"cliente": "acme s.a"}),
+        (
+            "ventas por cliente Acme Sur en 2026",
+            "ventas_por_cliente",
+            {"cliente": "acme sur", "anio": 2026},
+        ),
         ("facturas anuladas en 2026", "facturas_anuladas", {"anio": 2026}),
         ("top 3 productos en 2026", "top_productos", {"anio": 2026, "n": 3}),
         ("facturas en revisión", "facturas_en_revision", {}),

@@ -66,6 +66,14 @@ def crear_red(n_entradas, n_salidas=len(INTENCIONES)):
 def ajustar(frases, etiquetas, *, epocas=300, tasa=0.05, semilla=SEMILLA):
     if torch is None:
         return None
+    frases = list(frases or ())
+    etiquetas = list(etiquetas or ())
+    if not frases or len(frases) != len(etiquetas):
+        return None
+    if any(not str(frase).strip() for frase in frases):
+        return None
+    if any(etiqueta not in INTENCIONES for etiqueta in etiquetas):
+        return None
     torch.manual_seed(semilla)
     clases = list(INTENCIONES)
     vocabulario = vocabulario_desde(frases)

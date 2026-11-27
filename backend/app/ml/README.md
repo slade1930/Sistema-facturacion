@@ -8,7 +8,7 @@ Listo:
 
 - `datasets/generar_datos.py`: generador reproducible, semilla fija `20261126`, 30 meses de historia, estacionalidad y casos raros inyectados.
 - 5 CSV en `datasets/generados/`: **1000 facturas**, **2521 líneas de factura**, **400 pedidos**, **830 líneas de pedido** y **55 etiquetas de anomalías**.
-- 83 pruebas en `tests/ml/` (82 pasan y 1 se salta: 1 de entorno, 1 de estructura, 19 del generador y 62 del Módulo 4).
+- 100 pruebas en `tests/ml/` (99 pasan y 1 se salta: 1 de entorno, 1 de estructura, 19 del generador y 79 del Módulo 4).
 
 Ya implementado del Módulo 4: `asistente/catalogo.py`, `asistente/intenciones.py`, `asistente/frases_entrenamiento.py`, `modelos/asistente.py` y `entrenamiento/entrenar_asistente.py`. Por hacer: `reglas/`, `features/`, `evaluacion/`, `inferencia/` y los 4 routers de `api/v1/endpoints/ml/` siguen siendo stubs (docstrings) o no existen todavía. El único modelo entrenable hoy es la red local del asistente: se entrena con `python -m app.ml.entrenamiento.entrenar_asistente` y queda en `backend/ml_models/asistente.pt` (fuera de Git).
 
@@ -97,6 +97,8 @@ Métricas con semilla fija `20261126`, 54 frases de entrenamiento (9 por intenci
 - Dos entrenamientos seguidos producen exactamente los mismos pesos (`torch.manual_seed(20261126)` dentro de `ajustar()`); con otra semilla los pesos cambian.
 - La tokenización usa `re.findall(r"[a-z0-9]+", ...)`: sin signos `¿` / `?` y sin acentos.
 - Los parámetros ya no se copian de `clasificar()`: `predecir()` llama a `extraer_parametros()` con la frase normalizada, así que nunca se mezclan la intención de la red con los parámetros de otra regla.
+- Cliente por razón social: `extraer_parametros()` captura el nombre completo (por ejemplo `Acme S.A.`), y `catalogo.clientes_coinciden()` compara normalizando puntuación y acentos y aceptando sufijos legales (`S.A.`, `SRL`, `Ltda.`). Así `cliente="acme"` devuelve la factura de `Acme S.A.` sin confundirla con `Acme Sur`.
+- `ajustar()` valida entradas: con frases vacías, longitudes distintas, frases en blanco o etiquetas desconocidas devuelve `None` en vez de lanzar `ValueError`.
 - Sin `torch`: `disponible()` es `False` y `predecir()`, `guardar()` y `ajustar()` devuelven `None`. Un `.pt` corrupto, una frase vacía o una frase con tokens desconocidos también devuelven `None` en vez de romper la app.
 - **Pendiente explícito para el PR3 del asistente:** evaluación formal en `app/ml/evaluacion/asistente.py` (`test_evaluacion_asistente.py`, con estas métricas contra la línea base) y `POST /ml/asistente/consultar` (`app/api/v1/endpoints/ml/asistente.py`, `test_api_asistente.py`, contrato `{"evaluado", "modelo", "resultado"}` y "no entendí" con baja confianza). `app/api/v1/router.py` lo edita solo Moisés: hoy `RUTAS_ML: []` y el OpenAPI sigue en 32 rutas. Este PR es un paso incremental, **no** el cierre del Módulo 4.
 
