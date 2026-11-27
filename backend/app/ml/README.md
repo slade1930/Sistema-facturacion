@@ -1,6 +1,6 @@
 # ML — estado real y reparto del equipo
 
-Gente, acá ya no hay un esqueleto sin más: **los datos de ejemplo están listos y probados**, el Módulo 4 tiene catálogo, línea base, red local, evaluación y endpoint del asistente, y el Módulo 1 (anomalías) ya está integrado en `desarrollo`. Pronóstico y recomendaciones se integran en los siguientes PRs. Este archivo es la fuente de verdad del equipo.
+Gente, acá ya no hay un esqueleto sin más: **los datos de ejemplo están listos y probados**, el Módulo 4 tiene catálogo, línea base, red local, evaluación y endpoint del asistente, y los Módulos 1 (anomalías) y 2 (pronóstico) ya están integrados en `desarrollo`. Recomendaciones se integra en el siguiente PR. Este archivo es la fuente de verdad del equipo.
 
 ## 1. Estado real
 
@@ -8,9 +8,9 @@ Listo:
 
 - `datasets/generar_datos.py`: generador reproducible, semilla fija `20261126`, 30 meses de historia, estacionalidad y casos raros inyectados.
 - 5 CSV en `datasets/generados/`: **1000 facturas**, **2521 líneas de factura**, **400 pedidos**, **830 líneas de pedido** y **55 etiquetas de anomalías**.
-- Pruebas en `tests/ml/` para el generador, el Módulo 4 (asistente) y el Módulo 1 (anomalías); el total exacto se verifica en la corrida final de cada PR.
+- Pruebas en `tests/ml/` para el generador, el Módulo 4 (asistente), el Módulo 1 (anomalías) y el Módulo 2 (pronóstico); el total exacto se verifica en la corrida final de cada PR.
 
-Ya implementado del Módulo 4: `asistente/catalogo.py`, `asistente/intenciones.py`, `asistente/frases_entrenamiento.py`, `modelos/asistente.py`, `entrenamiento/entrenar_asistente.py`, `evaluacion/asistente.py` y `api/v1/endpoints/ml/asistente.py`. Ya implementado del Módulo 1: `features/anomalias.py`, `reglas/anomalias.py`, `modelos/anomalias.py`, `entrenamiento/entrenar_anomalias.py`, `evaluacion/anomalias.py` y `api/v1/endpoints/ml/anomalias.py`. Siguen por integrar el pronóstico y las recomendaciones. La red local del asistente se entrena con `python -m app.ml.entrenamiento.entrenar_asistente` y queda en `backend/ml_models/asistente.pt` (fuera de Git).
+Ya implementado del Módulo 4: `asistente/catalogo.py`, `asistente/intenciones.py`, `asistente/frases_entrenamiento.py`, `modelos/asistente.py`, `entrenamiento/entrenar_asistente.py`, `evaluacion/asistente.py` y `api/v1/endpoints/ml/asistente.py`. Ya implementado del Módulo 1: `features/anomalias.py`, `reglas/anomalias.py`, `modelos/anomalias.py`, `entrenamiento/entrenar_anomalias.py`, `evaluacion/anomalias.py` y `api/v1/endpoints/ml/anomalias.py`. Ya implementado del Módulo 2: `features/pronostico.py`, `modelos/pronostico.py`, `modelos/pronostico_lstm.py`, `entrenamiento/entrenar_pronostico.py`, `entrenamiento/entrenar_pronostico_lstm.py`, `evaluacion/pronostico.py` y `api/v1/endpoints/ml/pronostico.py`. Sigue por integrar recomendaciones. La red local del asistente se entrena con `python -m app.ml.entrenamiento.entrenar_asistente` y queda en `backend/ml_models/asistente.pt` (fuera de Git).
 
 Cómo generar y validar (dentro del contenedor):
 
@@ -125,3 +125,25 @@ features o reglas → modelos → entrenamiento → evaluación → endpoint →
 - `serie_repetida` se detecta con `FacturaRepository.existe_numero_serie()` y se pasa a `modelo.desde_factura(factura, serie_repetida=...)` tanto al crear como al evaluar. El hook de creación es best-effort: si falla, la factura se crea igual.
 - Sin `backend/ml_models/anomalias.pkl`, el endpoint responde `evaluado: false`, `modelo: null` y `resultado` con `factura_id`, puntaje/en_revision/motivo en `null`/`false`; la app sigue funcionando.
 - `catalogo.facturas_en_revision()` filtra por la columna booleana, no por el enum, para encontrar las facturas marcadas por el modelo.
+
+## 11. Pronóstico de ventas integrado en `desarrollo`
+
+`GET /api/v1/ml/pronostico?meses=&producto_id=` está registrado y protegido con API key. Elige el mejor artefacto disponible (`pronostico_lstm.pt` y después `pronostico_clasico.joblib`) y responde `{"evaluado", "modelo", "resultado"}`. Sin artefacto responde `{"evaluado": false, "modelo": null, "resultado": null}`; con artefacto pero sin historia suficiente responde `resultado.estado = "sin evaluar"`. Nunca bloquea la app.
+
+Evaluación con separación temporal estricta (holdout `2026-06` → `2026-11`), serie total mensual, semilla fija `20261126`:
+
+| Evaluación | MAE | RMSE | sMAPE |
+|---|---:|---:|---:|
+| Clásico (SARIMAX / Holt-Winters) | 10520,58 | 15373,41 | 30,35 % |
+| LSTM (80 épocas, CPU) | 8843,46 | 11302,41 | 32,84 % |
+| Mismo mes del año anterior | 9431,70 | 14360,23 | 28,18 % |
+| Media móvil (12 meses) | 6263,34 | 6766,51 | 25,38 % |
+
+La media móvil gana en las tres métricas con esta serie chica: los modelos quedan como sugerencia, nunca como decisión. Para reproducirlo:
+
+```
+python -m app.ml.entrenamiento.entrenar_pronostico --sin-guardar
+python -m app.ml.entrenamiento.entrenar_pronostico_lstm --sin-guardar
+```
+
+Los artefactos entrenados van en `backend/ml_models/` (fuera de Git). La LSTM pide como máximo 6 meses; si se pide más, el endpoint devuelve `"sin predicción"` sin romper.
