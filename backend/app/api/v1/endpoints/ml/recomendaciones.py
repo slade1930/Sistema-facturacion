@@ -148,14 +148,21 @@ def get_recomendaciones(
     items = None
     nombre_modelo = None
     if artefacto is not None:
+        # El artefacto puede venir del dataset sintético: sus ids no tienen
+        # por qué existir en la base real. Todo producto del modelo que no
+        # esté activo se excluye; si no queda ninguno, caemos a las reglas.
+        ids_modelo = {int(pid) for pid in (artefacto.get("productos") or [])}
+        excluidos_modelo = sorted(ids_modelo - activos)
         items = modelo_autoencoder.recomendar(
             artefacto,
             carrito,
             n=n,
-            excluir=excluidos,
+            excluir=sorted(set(excluidos) | set(excluidos_modelo)),
         )
-        if items:
+        if items and all(item["producto_id"] in activos for item in items):
             nombre_modelo = NOMBRE_MODELO
+        else:
+            items = None
 
     if not items:
         try:

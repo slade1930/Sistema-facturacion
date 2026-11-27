@@ -120,6 +120,37 @@ def test_excluye_carrito_e_inactivos(client, monkeypatch):
     assert set(ids) <= {3}
 
 
+def test_autoencoder_sin_productos_activos_cae_a_reglas(client, monkeypatch):
+    """El artefacto del dataset puede tener ids ajenos a la base real."""
+    torch = pytest.importorskip("torch")
+    import pandas as pd
+
+    matriz = pd.DataFrame(
+        [
+            [1.0, 0.0, 0.0, 0.0],
+            [0.0, 1.0, 0.0, 0.0],
+            [0.0, 0.0, 1.0, 0.0],
+            [1.0, 1.0, 0.0, 0.0],
+        ],
+        index=["A", "B", "C", "D"],
+        columns=[101, 102, 103, 104],
+    )
+    artefacto = modelo.entrenar_autoencoder(matriz, ocultas=4, epocas=5)
+    assert artefacto is not None
+    monkeypatch.setattr(endpoint, "_cargar_modelo", lambda: artefacto)
+
+    respuesta = _get(client, "?producto_ids=1&n=2")
+    assert respuesta.status_code == 200, respuesta.text
+    datos = respuesta.json()
+    assert datos["modelo"] is None
+    ids = [
+        item["producto_id"]
+        for item in datos["resultado"]["recomendaciones"]
+    ]
+    assert ids and set(ids) <= {2, 3, 4}  # activos del fixture
+    assert not (set(ids) & {101, 102, 103, 104})  # nunca los ids del artefacto
+
+
 def test_con_autoencoder_devuelve_modelo(client, monkeypatch):
     torch = pytest.importorskip("torch")
     import pandas as pd
