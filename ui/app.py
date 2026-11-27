@@ -1,0 +1,40 @@
+import os
+
+from nicegui import ui
+
+from components.layout import montar_layout
+from state.cliente_api import ClienteApi, ErrorApi
+
+cliente = ClienteApi()
+
+
+def probar_salud() -> None:
+    try:
+        respuesta = cliente.get("/health")
+        ui.notify(f"Backend OK: {respuesta.get('status', 'sin estado')}")
+    except ErrorApi as error:
+        ui.notify(error.detail, type="negative")
+
+
+@ui.page("/")
+def inicio() -> None:
+    montar_layout()
+    with ui.column().classes("w-full max-w-3xl mx-auto p-6 gap-4"):
+        ui.label("Facturación").classes("text-h4")
+        ui.label("Interfaz NiceGUI conectada al backend por httpx.").classes("text-grey")
+        with ui.card().classes("w-full"):
+            ui.label("Backend").classes("text-subtitle1")
+            ui.label(cliente.base_url)
+            ui.button("Probar /health", on_click=probar_salud)
+        with ui.row().classes("gap-2"):
+            ui.button(
+                "API docs",
+                on_click=lambda: ui.navigate.to("http://localhost:8000/docs", new_tab=True),
+            )
+
+
+ui.run(
+    host="0.0.0.0",
+    port=int(os.getenv("UI_PORT", "8080")),
+    title="Sistema de facturación",
+)
