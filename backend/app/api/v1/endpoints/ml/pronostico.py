@@ -99,7 +99,16 @@ def obtener_pronostico(
 
     periodos, serie = _serie_desde_db(db, producto_id)
     pred = _predecir(artefacto, meses)
-    if pred is None or len(serie) < _ventana_minima(artefacto):
+    if pred is None:
+        return {
+            "evaluado": False,
+            "modelo": nombre,
+            "resultado": {
+                "estado": "sin evaluar",
+                "motivo": "sin predicción",
+            },
+        }
+    if len(serie) < _ventana_minima(artefacto):
         return {
             "evaluado": False,
             "modelo": nombre,

@@ -97,3 +97,25 @@ El Módulo 4 depende de los módulos 1 a 3 (en revisión, anomalías) y de la re
 ## 9. Orden de cada módulo
 
 features o reglas → modelos → entrenamiento → evaluación → endpoint → pruebas → README → PR hacia `ml`.
+
+## 10. Pronóstico de ventas (Módulo 2)
+
+**Estado:** implementado y probado. Las métricas se midieron sobre el `ml` actual (CSV corregidos por el PR #51), con holdout temporal `2026-06` → `2026-11` de la serie total mensual. La serie nunca se baraja: el modelo entrena con los meses anteriores y se evalúa en ese bloque final.
+
+| Evaluación | MAE | RMSE | sMAPE |
+|---|---:|---:|---:|
+| Clásico (SARIMAX / Holt-Winters) | 10520,58 | 15373,41 | 30,35 % |
+| LSTM (80 épocas, CPU) | 8843,46 | 11302,41 | 32,84 % |
+| Mismo mes del año anterior | 9431,70 | 14360,23 | 28,18 % |
+| Media móvil (12 meses) | 6263,34 | 6766,51 | 25,38 % |
+
+La media móvil sigue ganando en las tres métricas con esta serie chica; los modelos quedan como sugerencia, nunca como decisión. El clásico y la LSTM se entrenan sin etiquetas nuevas y sus artefactos van en `backend/ml_models/` (fuera de Git).
+
+Para reproducirlo dentro del contenedor:
+
+```
+python -m app.ml.entrenamiento.entrenar_pronostico --sin-guardar
+python -m app.ml.entrenamiento.entrenar_pronostico_lstm --sin-guardar
+```
+
+El endpoint es `GET /ml/pronostico?meses=&producto_id=` y responde `{"evaluado","modelo","resultado"}`. Sin artefacto, o si el LSTM pide más meses de los que sabe pronosticar (6), devuelve `"sin evaluar"` y no bloquea. `router.py` lo registra Moisés en su PR; acá no se tocó.

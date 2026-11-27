@@ -121,12 +121,15 @@ def predecir(modelo, horizonte=None):
         import torch
 
         ventana = int(modelo.get("ventana", VENTANA))
-        horizonte = int(horizonte or modelo.get("horizonte", HORIZONTE))
+        horizonte_modelo = int(modelo.get("horizonte", HORIZONTE))
+        horizonte = int(horizonte or horizonte_modelo)
         historia = [float(v) for v in modelo.get("historia", [])]
-        if len(historia) < ventana:
+        # La red se entrenó con esa cabeza: no se puede pedir más de lo que
+        # sabe predecir ni reconstruirla con otro horizonte (state_dict no encaja).
+        if len(historia) < ventana or horizonte > horizonte_modelo:
             return None
 
-        red = _construir_red(ventana, horizonte)
+        red = _construir_red(ventana, horizonte_modelo)
         red.load_state_dict(modelo["state_dict"])
         red.eval()
 

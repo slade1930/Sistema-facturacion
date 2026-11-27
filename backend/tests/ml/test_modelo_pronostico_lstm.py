@@ -78,3 +78,17 @@ def test_entrenamiento_split_temporal(tmp_path):
         assert res["metricas"][nombre]["n"] == 6
     ruta = tmp_path / "modelos" / "pronostico_lstm.pt"
     assert res["ruta_modelo"] and ruta.is_file()
+
+
+def test_predecir_horizonte_menor_al_entrenado():
+    """La red se carga con su cabeza de 6 y se recorta a lo pedido."""
+    modelo = lstm.entrenar_lstm(_serie(), horizonte=6, epocas=3, semilla=1)
+    pred = lstm.predecir(modelo, horizonte=3)
+    assert pred is not None and len(pred) == 3
+    assert all(math.isfinite(v) for v in pred)
+
+
+def test_predecir_horizonte_mayor_al_entrenado_devuelve_none():
+    """Pedir más meses de los que la red sabe dar no inventa valores."""
+    modelo = lstm.entrenar_lstm(_serie(), horizonte=6, epocas=3, semilla=1)
+    assert lstm.predecir(modelo, horizonte=12) is None
