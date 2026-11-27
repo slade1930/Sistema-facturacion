@@ -2,7 +2,7 @@
 
 El sistema de facturación utiliza variables de entorno para configurar la conexión con la base de datos y los parámetros de seguridad de la aplicación.
 
-El proyecto cuenta con dos archivos de ejemplo para configurar las variables de entorno:
+El proyecto de sistema de facturación tiene dos archivos de ejemplo para configurar las variables de entorno:
 
 .env.example (raíz del proyecto): contiene las variables necesarias para configurar el entorno utilizado por Docker Compose, incluyendo la conexión con PostgreSQL y las claves de seguridad.
 
