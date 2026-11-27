@@ -1,6 +1,6 @@
 # ML — estado real y reparto del equipo
 
-Gente, acá ya no hay un esqueleto sin más: **los datos de ejemplo están listos y probados**, el Módulo 4 tiene catálogo, línea base, red local, evaluación y endpoint del asistente, y los Módulos 1 (anomalías), 2 (pronóstico) y 3 (recomendaciones: reglas y autoencoder) ya están en la rama de integración. Falta registrar el endpoint de recomendaciones. Este archivo es la fuente de verdad del equipo.
+Gente, acá ya no hay un esqueleto sin más: **los datos de ejemplo están listos y probados**, el Módulo 4 tiene catálogo, línea base, red local, evaluación y endpoint del asistente, y los Módulos 1 (anomalías), 2 (pronóstico) y 3 (recomendaciones: reglas y autoencoder) ya están integrados en `desarrollo` con sus cuatro endpoints registrados. Este archivo es la fuente de verdad del equipo.
 
 ## 1. Estado real
 
@@ -10,7 +10,7 @@ Listo:
 - 5 CSV en `datasets/generados/`: **1000 facturas**, **2521 líneas de factura**, **400 pedidos**, **830 líneas de pedido** y **55 etiquetas de anomalías**.
 - Pruebas en `tests/ml/` para el generador, el Módulo 4 (asistente), el Módulo 1 (anomalías), el Módulo 2 (pronóstico) y el Módulo 3 (recomendaciones); el total exacto se verifica en la corrida final de cada PR.
 
-Ya implementado del Módulo 4: `asistente/catalogo.py`, `asistente/intenciones.py`, `asistente/frases_entrenamiento.py`, `modelos/asistente.py`, `entrenamiento/entrenar_asistente.py`, `evaluacion/asistente.py` y `api/v1/endpoints/ml/asistente.py`. Ya implementado del Módulo 1: `features/anomalias.py`, `reglas/anomalias.py`, `modelos/anomalias.py`, `entrenamiento/entrenar_anomalias.py`, `evaluacion/anomalias.py` y `api/v1/endpoints/ml/anomalias.py`. Ya implementado del Módulo 2: `features/pronostico.py`, `modelos/pronostico.py`, `modelos/pronostico_lstm.py`, `entrenamiento/entrenar_pronostico.py`, `entrenamiento/entrenar_pronostico_lstm.py`, `evaluacion/pronostico.py` y `api/v1/endpoints/ml/pronostico.py`. Ya implementado del Módulo 3: `features/recomendaciones.py`, `reglas/recomendaciones.py`, `modelos/recomendaciones.py`, `entrenamiento/entrenar_recomendaciones.py` y `evaluacion/recomendaciones.py`; el endpoint aún es stub y se registra en el siguiente PR. La red local del asistente se entrena con `python -m app.ml.entrenamiento.entrenar_asistente` y queda en `backend/ml_models/asistente.pt` (fuera de Git).
+Ya implementado del Módulo 4: `asistente/catalogo.py`, `asistente/intenciones.py`, `asistente/frases_entrenamiento.py`, `modelos/asistente.py`, `entrenamiento/entrenar_asistente.py`, `evaluacion/asistente.py` y `api/v1/endpoints/ml/asistente.py`. Ya implementado del Módulo 1: `features/anomalias.py`, `reglas/anomalias.py`, `modelos/anomalias.py`, `entrenamiento/entrenar_anomalias.py`, `evaluacion/anomalias.py` y `api/v1/endpoints/ml/anomalias.py`. Ya implementado del Módulo 2: `features/pronostico.py`, `modelos/pronostico.py`, `modelos/pronostico_lstm.py`, `entrenamiento/entrenar_pronostico.py`, `entrenamiento/entrenar_pronostico_lstm.py`, `evaluacion/pronostico.py` y `api/v1/endpoints/ml/pronostico.py`. Ya implementado del Módulo 3: `features/recomendaciones.py`, `reglas/recomendaciones.py`, `modelos/recomendaciones.py`, `entrenamiento/entrenar_recomendaciones.py`, `evaluacion/recomendaciones.py` y el endpoint `GET /ml/recomendaciones`, registrado en `router.py`. La red local del asistente se entrena con `python -m app.ml.entrenamiento.entrenar_asistente` y queda en `backend/ml_models/asistente.pt` (fuera de Git).
 
 Cómo generar y validar (dentro del contenedor):
 
@@ -175,3 +175,33 @@ El artefacto se guarda en `backend/ml_models/recomendaciones.pt` (fuera de Git).
 - Nunca recomienda lo que ya está en `producto_ids` ni productos inactivos (`estado_activo = false`).
 - No hace `db.commit()`: es solo lectura. Sin base o sin historial responde `evaluado: false` con lista vacía.
 - Respuesta: `{"evaluado", "modelo", "resultado": {"producto_ids", "recomendaciones", "n"}}`.
+
+## 14. Artefactos para la entrega (issues #57 y #58)
+
+Los artefactos **no se versionan**: van en `backend/ml_models/`, ya cubierto por `.gitignore`. Se generan desde `backend/` con los CSV de ejemplo (semilla fija `20261126`) y se entregan con el entorno, no con el repositorio:
+
+```
+python -m app.ml.entrenamiento.entrenar_anomalias          # anomalias.pkl
+python -m app.ml.entrenamiento.entrenar_pronostico         # pronostico_clasico.joblib
+python -m app.ml.entrenamiento.entrenar_pronostico_lstm    # pronostico_lstm.pt
+python -m app.ml.entrenamiento.entrenar_recomendaciones    # recomendaciones.pt
+python -m app.ml.entrenamiento.entrenar_asistente          # asistente.pt
+```
+
+Ejecutados el 2026-11-27 con `torch 2.9.1+cpu`, `scikit-learn 1.9.1`, `pandas 3.1.1`, `statsmodels 0.15.0` y `joblib 1.6.0`:
+
+- Anomalías: 1000 facturas sin etiquetas; el Isolation Forest queda listo para `POST /ml/anomalias/evaluar/{factura_id}`.
+- Pronóstico clásico: mismas métricas de la sección 11 (MAE `10520,58` / RMSE `15373,41` / sMAPE `30,35 %`).
+- LSTM: MAE `9147,07` / RMSE `11624,00` / sMAPE `33,76 %` en esta corrida. Los números de la sección 11 vienen de otro entorno de torch; con esta serie chica **la media móvil sigue ganando**, así que el modelo solo sugiere.
+- Recomendaciones: 951 casos, línea base `12,09 %` hit / `2,42 %` precision@5; autoencoder `12,41 %` / `2,48 %` (igual que la sección 12).
+- Asistente: red local de 54 frases de entrenamiento, lista para `POST /ml/asistente/consultar`.
+
+Verificación end-to-end con PostgreSQL temporal y los cinco artefactos en disco: los cuatro endpoints ML devuelven `evaluado: true` (`anomalias-isolation-forest`, `pronostico_lstm.pt`, reglas de recomendaciones y `asistente-red-local`). Si los ids de producto del autoencoder no existen en la base real, el endpoint excluye los inactivos y cae a "más vendidos" (PR #72); el ML nunca recomienda un producto dado de baja.
+
+### Decisión sobre `orden_compra` (issue #57)
+
+Se mantiene como **texto libre** (`String(60)`) para ser fiel al sistema original: clientes y pedidos pueden traer una referencia propia y la factura la conserva tal cual. Ya existe `app.services.serie.siguiente_numero_oc(db, anio)`, que reserva `OC-AAAA-NNNN` con `ContadorOrdenCompra` y `FOR UPDATE`, por si en el futuro se quiere numeración automática. No se agrega entidad ni endpoint nuevo; si Flinn decide modelarlo, se reabre el issue y el diseño de la pantalla sigue siendo suyo.
+
+### Nota sobre el PR #65
+
+El endpoint de recomendaciones de `mdeh25-droid` quedó en la rama `ml-recomendaciones` y **no registra la ruta**. La versión canónica en `desarrollo` es la del PR #70. No se unifica: se deja como trabajo paralelo documentado para no duplicar código en la integración.
