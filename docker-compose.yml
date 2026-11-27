@@ -26,6 +26,9 @@ services:
       API_KEY: ${API_KEY:?Define API_KEY en tu .env}
     ports:
       - "8000:8000"
+    # Modelos entrenados: persisten acá y nunca entran a Git.
+    volumes:
+      - ./backend/ml_models:/app/ml_models
     # Esperamos a la db, pasamos migraciones y recién ahí arranca uvicorn.
     command: >
       sh -c "alembic upgrade head && uvicorn app.main:app --host 0.0.0.0 --port 8000"
