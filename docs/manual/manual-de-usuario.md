@@ -1,6 +1,6 @@
 # Manual de Usuario
 
-Por ahora no hay interfaz propia: usá Swagger UI en http://localhost:8000/docs y probá los endpoints desde ahí. La carpeta `ui/` (NiceGUI) todavía está vacía.
+La interfaz propia ya está disponible en http://localhost:8080 (NiceGUI). Desde ahí se usan facturas, historial, catálogo, pedidos, configuración y verificación. Para probar endpoints directamente podés usar Swagger UI en http://localhost:8000/docs.
 
 Las rutas `/api/v1` piden la cabecera `X-API-Key` con el valor definido en `.env`. `/health` y `/api/v1/verificar/{numero_serie}/{codigo}` son públicas.
 

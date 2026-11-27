@@ -78,7 +78,7 @@ Cada equipo trabaja en su rama y trae lo nuevo con `git merge desarrollo`. Prohi
 ## Tecnologías
 
 - Backend: Python, FastAPI, SQLAlchemy, Alembic.
-- Interfaz: Swagger UI de FastAPI (NiceGUI está planeado; `ui/` aún vacío).
+- Interfaz: NiceGUI en `ui/` (13 rutas, cliente `httpx` server-side y 71 pruebas de UI). Swagger UI de FastAPI sigue disponible en `/docs`.
 - Base de datos: PostgreSQL.
 - Infraestructura: Docker, Docker Compose.
 - Pruebas: pytest.

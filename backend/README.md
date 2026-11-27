@@ -110,7 +110,7 @@ Ver [README de ML](app/ml/README.md). Hoy hay un generador reproducible y 5 CSV 
 
 ## Interfaz
 
-La interfaz **NiceGUI está planeada, todavía no implementada**: la carpeta `ui/` existe pero sus archivos están vacíos, no hay dependencia NiceGUI ni servicio Docker para ella. Por ahora se usa Swagger UI.
+La interfaz **NiceGUI ya está implementada** en `ui/`, con 13 rutas, cliente `httpx` server-side y servicio `ui` en Docker Compose en el puerto `8080`. No usa CORS ni JavaScript para consumir la API: las llamadas se hacen desde el servidor Python con la cabecera `X-API-Key`. Swagger UI de FastAPI sigue disponible en `/docs`.
 
 ## Enlaces y archivos vacíos
 
