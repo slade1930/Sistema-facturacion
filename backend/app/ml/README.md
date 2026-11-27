@@ -8,7 +8,7 @@ Listo:
 
 - `datasets/generar_datos.py`: generador reproducible, semilla fija `20261126`, 30 meses de historia, estacionalidad y casos raros inyectados.
 - 5 CSV en `datasets/generados/`: **1000 facturas**, **2521 líneas de factura**, **400 pedidos**, **830 líneas de pedido** y **55 etiquetas de anomalías**.
-- 21 pruebas en `tests/ml/` (1 de entorno, 1 de estructura y 19 del generador).
+- 53 pruebas en `tests/ml/` (1 de entorno, 1 de estructura, 19 del generador y 32 del Módulo 4).
 
 Por hacer: `reglas/`, `features/`, `modelos/`, `entrenamiento/`, `evaluacion/`, `inferencia/` y los 4 routers de `api/v1/endpoints/ml/` son stubs (docstrings) o no existen todavía. Ningún modelo está entrenado.
 

@@ -5,9 +5,11 @@ Línea base sin modelo: palabras clave y fechas.
 """
 from __future__ import annotations
 
+import calendar
 import re
 import unicodedata
 from dataclasses import dataclass, field
+from datetime import date, timedelta
 
 from app.ml.asistente.catalogo import CATALOGO
 
@@ -28,6 +30,10 @@ MESES = {
     "diciembre": 12,
 }
 
+_PATRON_FECHA_COMPLETA = re.compile(r"\b(20\d{2})-(\d{1,2})-(\d{1,2})\b")
+_PATRON_RANGO = re.compile(
+    r"\b(?:entre|de)\s+([a-z]+)\s+(?:y|a)\s+([a-z]+)\s+(?:de\s+)?(20\d{2})\b"
+)
 _PATRON_AnioMes = re.compile(r"\b(20\d{2})[-/](\d{1,2})\b")
 _PATRON_ANIO = re.compile(r"\b(20\d{2})\b")
 _PATRON_CLIENTE = re.compile(r"\bcliente\s*(?:n[°ºo]?\.?\s*)?(\d+)\b")
@@ -59,19 +65,56 @@ def normalizar(texto: str) -> str:
     return re.sub(r"\s+", " ", sin_acentos).strip()
 
 
-def extraer_fechas(texto: str) -> dict:
+def extraer_fechas(texto: str, hoy: date | None = None) -> dict:
+    hoy = hoy or date.today()
     parametros = {}
+
+    completa = _PATRON_FECHA_COMPLETA.search(texto)
+    if completa:
+        anio, mes, dia = (int(grupo) for grupo in completa.groups())
+        if 1 <= mes <= 12 and 1 <= dia <= 31:
+            parametros.update({"anio": anio, "mes": mes, "dia": dia})
+            return parametros
+
+    rango = _PATRON_RANGO.search(texto)
+    if rango:
+        primero = MESES.get(rango.group(1))
+        ultimo = MESES.get(rango.group(2))
+        anio = int(rango.group(3))
+        if primero and ultimo and primero <= ultimo:
+            parametros["desde"] = date(anio, primero, 1).isoformat()
+            parametros["hasta"] = date(
+                anio, ultimo, calendar.monthrange(anio, ultimo)[1]
+            ).isoformat()
+            return parametros
+
     anio_mes = _PATRON_AnioMes.search(texto)
     if anio_mes:
         anio, mes = int(anio_mes.group(1)), int(anio_mes.group(2))
         if 1 <= mes <= 12:
-            parametros["anio"] = anio
-            parametros["mes"] = mes
+            parametros.update({"anio": anio, "mes": mes})
+            return parametros
+
+    if "ayer" in texto:
+        fecha = hoy - timedelta(days=1)
+        parametros.update({"anio": fecha.year, "mes": fecha.month, "dia": fecha.day})
+        return parametros
+    if "hoy" in texto:
+        parametros.update({"anio": hoy.year, "mes": hoy.month, "dia": hoy.day})
+        return parametros
+    if "este mes" in texto:
+        parametros.update({"anio": hoy.year, "mes": hoy.month})
+        return parametros
+    if "ano pasado" in texto:
+        parametros["anio"] = hoy.year - 1
+        return parametros
+    if "este ano" in texto:
+        parametros["anio"] = hoy.year
         return parametros
 
     for nombre, numero in MESES.items():
         if re.search(rf"\b{nombre}\b", texto):
-            parametros["mes"] = numero
+            parametros.update({"mes": numero, "anio": hoy.year})
             break
 
     anio = _PATRON_ANIO.search(texto)
@@ -80,16 +123,16 @@ def extraer_fechas(texto: str) -> dict:
     return parametros
 
 
-def clasificar(pregunta: str) -> Intencion | None:
+def clasificar(pregunta: str, hoy: date | None = None) -> Intencion | None:
     texto = normalizar(pregunta)
     if not texto:
         return None
 
-    parametros = extraer_fechas(texto)
+    parametros = extraer_fechas(texto, hoy)
 
     cliente = _PATRON_CLIENTE.search(texto)
     if cliente:
-        parametros["cliente"] = cliente.group(1)
+        parametros["cliente_id"] = int(cliente.group(1))
 
     top = _PATRON_TOP.search(texto)
     if top:
