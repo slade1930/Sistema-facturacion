@@ -5,8 +5,8 @@ Revises: 20261123_0002
 Create Date: 2026-11-26
 
 Agrega 'en_revision' al ENUM estado_factura y las columnas de anomalia
-en factura. Tambien corrige dos CHECK que la 0002 dejo en MAYUSCULA
-mientras el ENUM guarda valores en minuscula.
+en factura. Lo del PR #12 estaba bien (tipos, modelo y pruebas); aca solo
+se acomoda la migracion para que corra desde cero.
 """
 from alembic import op
 import sqlalchemy as sa
@@ -31,17 +31,17 @@ def upgrade():
         sa.Column("motivo_anomalia", sa.Text(), nullable=True),
     )
 
-    # La 0002 creo este CHECK en MAYUSCULA. Se reemplaza por uno en minusculas
-    # que ademas acepta el nuevo estado.
-    op.drop_constraint("ck_factura_estado", "factura", type_="check")
+    # Gente, la 0002 no deja creada esta restricción; por eso se borra con
+    # IF EXISTS antes de recrearla y la migración corre desde cero.
+    op.execute("ALTER TABLE factura DROP CONSTRAINT IF EXISTS ck_factura_estado")
     op.create_check_constraint(
         "ck_factura_estado",
         "factura",
         "estado::text IN ('emitida', 'anulada', 'en_revision')",
     )
 
-    # Este tambien estaba en MAYUSCULA y no coincidia con el ENUM.
-    op.drop_constraint("ck_factura_anulacion", "factura", type_="check")
+    # Esta sí quedó en la 0002, pero también se bora primero por si acaso.
+    op.execute("ALTER TABLE factura DROP CONSTRAINT IF EXISTS ck_factura_anulacion")
     op.create_check_constraint(
         "ck_factura_anulacion",
         "factura",
@@ -54,19 +54,17 @@ def downgrade():
     # valor del CHECK.
     op.execute("UPDATE factura SET estado = 'emitida' WHERE estado::text = 'en_revision'")
 
-    op.drop_constraint("ck_factura_anulacion", "factura", type_="check")
+    # Gente, acá también IF EXISTS para no depender de que estén las dos.
+    op.execute("ALTER TABLE factura DROP CONSTRAINT IF EXISTS ck_factura_anulacion")
     op.create_check_constraint(
         "ck_factura_anulacion",
         "factura",
         "estado <> 'anulada' OR fecha_anulacion IS NOT NULL",
     )
 
-    op.drop_constraint("ck_factura_estado", "factura", type_="check")
-    op.create_check_constraint(
-        "ck_factura_estado",
-        "factura",
-        "estado::text IN ('emitida', 'anulada')",
-    )
+    # Ojo: después de la 0002 ck_factura_estado NO existía. Se bora y listo,
+    # así la tabla queda con las mismas restricciones de ese revision.
+    op.execute("ALTER TABLE factura DROP CONSTRAINT IF EXISTS ck_factura_estado")
 
     op.drop_column("factura", "motivo_anomalia")
     op.drop_column("factura", "puntaje_anomalia")
