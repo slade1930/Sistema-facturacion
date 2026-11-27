@@ -10,6 +10,7 @@ from app.api.v1.endpoints.facturacion import (
     pedidos,
     verificar,
 )
+from app.api.v1.endpoints.ml import anomalias as anomalias_api
 from app.api.v1.endpoints.ml import asistente as asistente_api
 
 router = APIRouter()
@@ -26,3 +27,4 @@ router.include_router(catalogo_api.router)
 router.include_router(pedidos_b2b.router)
 router.include_router(carrito.router)
 router.include_router(asistente_api.router)
+router.include_router(anomalias_api.router)
