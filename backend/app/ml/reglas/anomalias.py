@@ -74,3 +74,26 @@ def regla_duplicado(factura: RasgosFactura, historial: list[RasgosFactura]):
                 peso=30,
             )
     return None
+
+UMBRAL_ANULACIONES = 3
+
+
+def regla_anulaciones_repetidas(factura: RasgosFactura, historial: list[RasgosFactura]):
+    """Salta si la factura está anulada y su cliente acumula muchas anulaciones."""
+    if not factura.anulada:
+        return None
+    otras = sum(
+        1
+        for otra in historial
+        if otra.factura_id != factura.factura_id
+        and otra.cliente == factura.cliente
+        and otra.anulada
+    )
+    total = otras + 1  # la propia factura también cuenta
+    if total >= UMBRAL_ANULACIONES:
+        return Hallazgo(
+            regla="anulaciones_repetidas",
+            motivo=f"El cliente acumula {total} facturas anuladas.",
+            peso=20,
+        )
+    return None

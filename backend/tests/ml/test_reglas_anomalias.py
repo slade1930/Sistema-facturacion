@@ -2,9 +2,9 @@ from datetime import date
 from decimal import Decimal
 
 from app.ml.features.anomalias import RasgosFactura
-from app.ml.reglas.anomalias import percentil, regla_monto_alto
 from app.ml.reglas.anomalias import (
     percentil,
+    regla_anulaciones_repetidas,
     regla_descuento_alto,
     regla_duplicado,
     regla_monto_alto,
@@ -68,3 +68,28 @@ def test_distinto_cliente_no_es_duplicado():
 def test_no_se_compara_consigo_misma():
     base = _factura(1, 100)
     assert regla_duplicado(base, [base]) is None
+
+def test_anulaciones_repetidas_salta():
+    base = _factura(1, 100, anulada=True)
+    historial = [_factura(2, 100, anulada=True), _factura(3, 100, anulada=True)]
+    assert regla_anulaciones_repetidas(base, historial).regla == "anulaciones_repetidas"
+
+
+def test_dos_anulaciones_no_salta():
+    base = _factura(1, 100, anulada=True)
+    assert regla_anulaciones_repetidas(base, [_factura(2, 100, anulada=True)]) is None
+
+
+def test_factura_no_anulada_no_salta():
+    historial = [_factura(i, 100, anulada=True) for i in (2, 3, 4)]
+    assert regla_anulaciones_repetidas(_factura(1, 100), historial) is None
+
+
+def test_anulaciones_de_otro_cliente_no_cuentan():
+    historial = [_factura(i, 100, cliente="C2", anulada=True) for i in (2, 3)]
+    assert regla_anulaciones_repetidas(_factura(1, 100, anulada=True), historial) is None
+
+
+def test_anulaciones_no_se_cuenta_a_si_misma():
+    base = _factura(1, 100, anulada=True)
+    assert regla_anulaciones_repetidas(base, [base, _factura(2, 100, anulada=True)]) is None
