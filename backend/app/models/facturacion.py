@@ -43,6 +43,7 @@ class CondicionPago(str, Enum):
 class EstadoFactura(str, Enum):
     EMITIDA = "emitida"
     ANULADA = "anulada"
+    EN_REVISION = "en_revision"
 
 
 class CobrarPor(str, Enum):
@@ -171,6 +172,10 @@ class Factura(Base):
         default=EstadoFactura.EMITIDA,
         server_default=EstadoFactura.EMITIDA.value,
     )
+    puntaje_anomalia: Mapped[Decimal | None] = mapped_column(
+        Numeric(6, 2), nullable=True
+    )
+    motivo_anomalia: Mapped[str | None] = mapped_column(Text, nullable=True)
     fecha_creacion: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, server_default=func.now()
     )
