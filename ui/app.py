@@ -3,6 +3,7 @@ import os
 from nicegui import ui
 
 from components.layout import montar_layout
+from pages.verificar import verificar as _pagina_verificar
 from state.cliente_api import ClienteApi, ErrorApi
 
 cliente = ClienteApi()
