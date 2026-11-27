@@ -3,6 +3,8 @@ import os
 from nicegui import ui
 
 from components.layout import montar_layout
+from pages.catalogo import carrito as _pagina_carrito
+from pages.catalogo import catalogo as _pagina_catalogo
 from pages.facturacion import detalle as _pagina_detalle
 from pages.facturacion import historial as _pagina_historial
 from pages.facturacion import nueva as _pagina_nueva
