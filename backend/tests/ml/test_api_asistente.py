@@ -6,6 +6,7 @@ import pytest
 from fastapi import HTTPException
 
 from app.api.v1.endpoints.ml import asistente as endpoint
+from app.api.v1.router import router as router_principal
 from app.core import errors
 from app.ml.asistente import catalogo, intenciones
 from app.ml.modelos import asistente as modelo
@@ -32,6 +33,14 @@ def test_endpoint_consultar_esta_preparado_para_registrar():
     assert len(rutas) == 1
     assert "POST" in rutas[0].methods
     assert endpoint.router.prefix == "/ml/asistente"
+
+
+def test_ruta_registrada_en_el_router_principal():
+    from fastapi import FastAPI
+
+    app = FastAPI()
+    app.include_router(router_principal, prefix="/api/v1")
+    assert "/api/v1/ml/asistente/consultar" in app.openapi()["paths"]
 
 
 def test_sin_modelo_responde_desde_catalogo_con_hoy(monkeypatch, hoy_fijo):
