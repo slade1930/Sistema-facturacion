@@ -199,6 +199,7 @@ def test_crear_factura_sigue_funcionando_si_el_hook_falla(monkeypatch):
 
     assert creada is guardada["factura"]
     assert creada.estado == EstadoFactura.EMITIDA
-    assert creada.en_revision is False
+    # El default se aplica al hacer commit; acá sólo importa que el hook no marcó.
+    assert creada.en_revision is not True
     assert db.confirmaciones == 1
     assert db.refrescos == 1
