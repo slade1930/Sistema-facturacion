@@ -8,11 +8,12 @@ from __future__ import annotations
 import json
 
 from app.ml.datasets import generar_datos
-from app.ml.entrenamiento.entrenar_anomalias import rasgos_desde_fila
+from app.ml.entrenamiento.entrenar_anomalias import rasgos_desde_filas
 from app.ml.modelos import anomalias as modelo
 from app.ml.reglas.anomalias import evaluar_factura
 
 UMBRAL_REGLAS = 20  # cualquier regla que salta ya sugiere revisión
+FRACCION_CALIBRACION = 0.6  # 60% para fijar el umbral, 40% sin ver para medir
 
 
 def metricas(predichos, reales):
@@ -32,6 +33,19 @@ def metricas(predichos, reales):
         "recall": round(recall, 4),
         "f1": round(f1, 4),
     }
+
+
+def dividir_etiquetas(etiquetas, fraccion=FRACCION_CALIBRACION):
+    """Separa etiquetas en calibración y validación, por id y sin azar.
+
+    El umbral se ajusta sólo con calibración; las métricas se miden con
+    validación, que el ajuste nunca vio.
+    """
+    ids = sorted({int(fid) for fid in etiquetas})
+    if len(ids) < 2:
+        return set(ids), set()
+    corte = max(1, min(len(ids) - 1, round(len(ids) * fraccion)))
+    return set(ids[:corte]), set(ids[corte:])
 
 
 def elegir_umbral(puntajes, reales):
@@ -60,52 +74,56 @@ def evaluar_anomalias(
     """Compara las reglas contra el modelo; sin modelo devuelve evaluado=False."""
     rasgos = list(rasgos)
     reales = {int(fid) for fid in etiquetas or ()}
+    calibracion, validacion = dividir_etiquetas(reales)
+    # Con umbral explícito no hay ajuste: se mide sobre todas las etiquetas.
+    objetivo = validacion if umbral is None else reales
+    sin_modelo = {
+        "evaluado": False,
+        "modelo": None,
+        "total": len(rasgos),
+        "etiquetadas": len(objetivo),
+        "calibracion": 0,
+        "umbral": modelo.UMBRAL_REVISION,
+        "reglas": None,
+        "isolation_forest": None,
+    }
     datos = modelo.cargar(nombre)
     if datos is None or not rasgos:
-        return {
-            "evaluado": False,
-            "modelo": None,
-            "total": len(rasgos),
-            "etiquetadas": len(reales),
-            "umbral": modelo.UMBRAL_REVISION,
-            "reglas": None,
-            "isolation_forest": None,
-        }
+        return sin_modelo
 
     puntajes = []
     for fila in rasgos:
         try:
             puntaje = modelo.puntaje_con(datos, fila)
         except (KeyError, TypeError, ValueError, AttributeError, IndexError):
-            return {
-                "evaluado": False,
-                "modelo": None,
-                "total": len(rasgos),
-                "etiquetadas": len(reales),
-                "umbral": modelo.UMBRAL_REVISION,
-                "reglas": None,
-                "isolation_forest": None,
-            }
+            return sin_modelo
         puntajes.append((fila.factura_id, round(puntaje, 4)))
 
     umbral_final = (
-        elegir_umbral(puntajes, reales) if umbral is None else float(umbral)
+        elegir_umbral(puntajes, calibracion) if umbral is None else float(umbral)
     )
-    predichos_modelo = {fid for fid, puntaje in puntajes if puntaje >= umbral_final}
+    # Lo que se usó para calibrar no se cuenta como falso positivo al medir.
+    excluidas = calibracion if umbral is None else set()
+    predichos_modelo = {
+        fid for fid, puntaje in puntajes
+        if fid not in excluidas and puntaje >= umbral_final
+    }
     predichos_reglas = {
         fila.factura_id
         for fila in rasgos
-        if evaluar_factura(fila, rasgos).puntaje >= UMBRAL_REGLAS
+        if fila.factura_id not in excluidas
+        and evaluar_factura(fila, rasgos).puntaje >= UMBRAL_REGLAS
     }
 
     resultado = {
         "evaluado": True,
         "modelo": modelo.NOMBRE_PUBLICO,
         "total": len(rasgos),
-        "etiquetadas": len(reales),
+        "etiquetadas": len(objetivo),
+        "calibracion": len(calibracion) if umbral is None else 0,
         "umbral": round(umbral_final, 4),
-        "reglas": metricas(predichos_reglas, reales),
-        "isolation_forest": metricas(predichos_modelo, reales),
+        "reglas": metricas(predichos_reglas, objetivo),
+        "isolation_forest": metricas(predichos_modelo, objetivo),
     }
     if incluir_detalle:
         resultado["detalle"] = [
@@ -129,7 +147,7 @@ def evaluar_desde_csv(
 ):
     """Evalúa contra las 55 etiquetas de los CSV generados."""
     facturas, etiquetas = generar_datos.leer_dataset_csv(directorio)
-    rasgos = [rasgos_desde_fila(fila) for fila in facturas]
+    rasgos = rasgos_desde_filas(facturas)
     reales = {
         int(etiqueta["factura_id"])
         for etiqueta in etiquetas

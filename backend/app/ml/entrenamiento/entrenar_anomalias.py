@@ -10,23 +10,32 @@ from datetime import date
 from decimal import Decimal
 
 from app.ml.datasets import generar_datos
-from app.ml.features.anomalias import RasgosFactura
 from app.ml.modelos import anomalias as modelo
 
 
 def rasgos_desde_fila(fila):
-    """Convierte una fila de los CSV en RasgosFactura (para entrenar/evaluar)."""
+    """Convierte una fila de los CSV en rasgos del modelo (sin usar etiquetas)."""
     descuentos = [
         Decimal(str(linea.get("descuento_pct") or "0"))
         for linea in fila.get("lineas") or []
     ]
-    return RasgosFactura(
+    return modelo.RasgosAnomalia(
         factura_id=int(fila["id"]),
         cliente=fila.get("cliente_ruc") or fila.get("cliente_nombre") or "",
         fecha=date.fromisoformat(str(fila["fecha"])[:10]),
         total=Decimal(str(fila["total"])),
         descuento_max_pct=max(descuentos, default=Decimal("0")),
         anulada=str(fila.get("estado", "")).lower() == "anulada",
+        numero_serie=str(fila.get("numero_serie") or ""),
+        cliente_ruc=fila.get("cliente_ruc") or None,
+        itbms=Decimal(str(fila.get("itbms") or "0")),
+    )
+
+
+def rasgos_desde_filas(filas):
+    """Convierte y marca las series repetidas, en orden de factura."""
+    return modelo.marcar_series_repetidas(
+        [rasgos_desde_fila(fila) for fila in filas]
     )
 
 
@@ -39,7 +48,7 @@ def entrenar_anomalias(
 ):
     """Entrena con los CSV; devuelve los datos y opcionalmente los guarda."""
     facturas, _ = generar_datos.leer_dataset_csv(directorio)
-    rasgos = [rasgos_desde_fila(fila) for fila in facturas]
+    rasgos = rasgos_desde_filas(facturas)
     datos = modelo.entrenar(rasgos, n_arboles=n_arboles, semilla=semilla)
     if datos is None:
         return None

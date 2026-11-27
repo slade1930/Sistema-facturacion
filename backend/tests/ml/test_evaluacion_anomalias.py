@@ -59,6 +59,30 @@ def test_sin_etiquetas_queda_el_umbral_por_defecto():
     assert evaluacion.elegir_umbral([(1, 0.9)], []) == modelo.UMBRAL_REVISION
 
 
+def test_dividir_etiquetas_deja_validacion_sin_ver():
+    calibracion, validacion = evaluacion.dividir_etiquetas({1, 2, 3, 4, 5})
+
+    assert calibracion.isdisjoint(validacion)
+    assert calibracion | validacion == {1, 2, 3, 4, 5}
+    assert len(calibracion) == 3
+
+
+def test_umbral_solo_se_calibra_con_la_primera_parte(monkeypatch, modelo_entrenado):
+    vistos = []
+    original = evaluacion.elegir_umbral
+
+    def espia(puntajes, etiquetas):
+        vistos.append(set(etiquetas))
+        return original(puntajes, etiquetas)
+
+    monkeypatch.setattr(evaluacion, "elegir_umbral", espia)
+    evaluacion.evaluar_anomalias(
+        modelo_entrenado, {900, 901, 902}, nombre=NOMBRE_PRUEBA
+    )
+
+    assert vistos == [{900, 901}]
+
+
 def test_sin_modelo_no_evalua(monkeypatch):
     monkeypatch.setattr(modelo, "cargar", lambda nombre: None)
 
@@ -93,7 +117,8 @@ def test_evaluar_compara_reglas_contra_el_modelo(modelo_entrenado):
     assert resultado["evaluado"] is True
     assert resultado["modelo"] == modelo.NOMBRE_PUBLICO
     assert resultado["total"] == 63
-    assert resultado["etiquetadas"] == 3
+    assert resultado["etiquetadas"] == 1
+    assert resultado["calibracion"] == 2
     for clave in ("reglas", "isolation_forest"):
         assert 0 <= resultado[clave]["precision"] <= 1
         assert 0 <= resultado[clave]["recall"] <= 1
@@ -111,21 +136,31 @@ def test_umbral_explicito_no_se_recalcula(modelo_entrenado):
 
 def test_detalle_incluye_cada_factura(modelo_entrenado):
     resultado = evaluacion.evaluar_anomalias(
-        modelo_entrenado, {900}, nombre=NOMBRE_PRUEBA, incluir_detalle=True
+        modelo_entrenado,
+        {900, 901, 902},
+        nombre=NOMBRE_PRUEBA,
+        incluir_detalle=True,
     )
 
     assert len(resultado["detalle"]) == 63
     assert resultado["detalle"][0]["factura_id"] == 0
     assert all("puntaje" in fila for fila in resultado["detalle"])
+    calibradas = [fila for fila in resultado["detalle"] if fila["factura_id"] in (900, 901)]
+    assert all(
+        not fila["modelo_revision"] and not fila["reglas_revision"]
+        for fila in calibradas
+    )
 
 
 def test_rasgos_desde_fila_de_csv():
     fila = {
         "id": "12",
+        "numero_serie": "F-12",
         "cliente_ruc": "RUC-1",
         "cliente_nombre": "Acme",
         "fecha": "2026-01-15",
         "total": "250.50",
+        "itbms": "0.00",
         "estado": "anulada",
         "lineas": [
             {"descuento_pct": "10.00"},
@@ -140,3 +175,19 @@ def test_rasgos_desde_fila_de_csv():
     assert rasgos.total == Decimal("250.50")
     assert rasgos.descuento_max_pct == Decimal("35.50")
     assert rasgos.anulada is True
+    assert rasgos.numero_serie == "F-12"
+    assert rasgos.cliente_ruc == "RUC-1"
+    assert rasgos.itbms == Decimal("0.00")
+
+
+def test_rasgos_desde_filas_marca_serie_repetida():
+    filas = [
+        {"id": "1", "numero_serie": "F-1", "cliente_ruc": "R", "cliente_nombre": "A",
+         "fecha": "2026-01-01", "total": "10", "itbms": "1", "estado": "emitida", "lineas": []},
+        {"id": "2", "numero_serie": "F-1", "cliente_ruc": "R", "cliente_nombre": "A",
+         "fecha": "2026-01-02", "total": "10", "itbms": "1", "estado": "emitida", "lineas": []},
+    ]
+
+    rasgos = entrenar_anomalias.rasgos_desde_filas(filas)
+
+    assert [f.serie_repetida for f in rasgos] == [False, True]

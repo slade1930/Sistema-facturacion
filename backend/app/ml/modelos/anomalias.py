@@ -8,19 +8,25 @@ from __future__ import annotations
 import math
 import pickle
 import random
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
+from datetime import date
+from decimal import Decimal
 from pathlib import Path
 
-from app.ml.features.anomalias import RasgosFactura
+from app.ml.features.anomalias import RasgosFactura, rasgos_de_factura
 from app.ml.inferencia.cargador import CARPETA_MODELOS as RUTA_MODELOS
 
 CARPETA_MODELOS = RUTA_MODELOS
 NOMBRE_MODELO = "anomalias.pkl"
 NOMBRE_PUBLICO = "anomalias-isolation-forest"
-NOMBRES_RASGOS = ("total", "descuento", "anulada", "mes")
+NOMBRES_RASGOS = (
+    "total", "descuento", "anulada", "mes",
+    "sin_ruc", "serie_repetida", "total_sin_itbms",
+)
+_SIN_RUC = object()  # distingue "no hay dato" de "no tiene RUC"
 SEMILLA = 20261126
 N_ARBOLES = 100
-UMBRAL_REVISION = 0.65  # lo ajusta evaluacion/anomalias.py con las etiquetas
+UMBRAL_REVISION = 0.5614  # fijado con las etiquetas; ver README 6.2
 GAMMA = 0.5772156649015329
 
 
@@ -30,13 +36,67 @@ class PrediccionAnomalia:
     en_revision: bool    # sugerencia, no decide el estado
 
 
+@dataclass(frozen=True)
+class RasgosAnomalia:
+    """Rasgos de Antony más las señales que ve el Isolation Forest."""
+    factura_id: int
+    cliente: str
+    fecha: date
+    total: Decimal
+    descuento_max_pct: Decimal
+    anulada: bool
+    numero_serie: str = ""
+    cliente_ruc: str | None = None
+    itbms: Decimal | None = None
+    serie_repetida: bool = False
+
+
+def desde_factura(factura, *, serie_repetida=False) -> RasgosAnomalia:
+    """Construye los rasgos desde una Factura sin cambiar el modelo de datos."""
+    base = rasgos_de_factura(factura)
+    itbms = getattr(factura, "itbms", None)
+    return RasgosAnomalia(
+        factura_id=base.factura_id,
+        cliente=base.cliente,
+        fecha=base.fecha,
+        total=base.total,
+        descuento_max_pct=base.descuento_max_pct,
+        anulada=base.anulada,
+        numero_serie=str(getattr(factura, "numero_serie", "") or ""),
+        cliente_ruc=getattr(factura, "cliente_ruc", None),
+        itbms=Decimal(str(itbms)) if itbms is not None else None,
+        serie_repetida=bool(serie_repetida),
+    )
+
+
+def marcar_series_repetidas(rasgos):
+    """Marca la segunda y siguientes facturas con el mismo número de serie."""
+    vistos = set()
+    salida = []
+    for fila in rasgos:
+        serie = str(getattr(fila, "numero_serie", "") or "")
+        repetida = bool(serie and serie in vistos)
+        if serie:
+            vistos.add(serie)
+        if hasattr(fila, "serie_repetida"):
+            fila = replace(fila, serie_repetida=repetida)
+        salida.append(fila)
+    return salida
+
+
 def vectorizar(rasgos: RasgosFactura) -> list[float]:
     """Deja los rasgos en un vector numérico fijo, sin tocar Decimal."""
+    ruc = getattr(rasgos, "cliente_ruc", _SIN_RUC)
+    itbms = getattr(rasgos, "itbms", None)
+    sin_itbms = itbms is not None and Decimal(str(itbms)) == 0
     return [
         float(rasgos.total),
         float(rasgos.descuento_max_pct),
         1.0 if rasgos.anulada else 0.0,
         float(rasgos.fecha.month),
+        0.0 if ruc is _SIN_RUC or ruc else 1.0,
+        1.0 if getattr(rasgos, "serie_repetida", False) else 0.0,
+        float(rasgos.total) if sin_itbms else 0.0,
     ]
 
 

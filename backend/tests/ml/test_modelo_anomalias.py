@@ -1,5 +1,6 @@
 from datetime import date
 from decimal import Decimal
+from types import SimpleNamespace
 
 import pytest
 
@@ -28,7 +29,43 @@ def carpeta_modelos(tmp_path, monkeypatch):
 
 def test_vectorizar_usa_decimal_y_orden_fijo():
     vector = modelo.vectorizar(_rasgos(1, total="250.50", descuento="12.5", anulada=True, mes=11))
-    assert vector == [250.5, 12.5, 1.0, 11.0]
+    assert vector == [250.5, 12.5, 1.0, 11.0, 0.0, 0.0, 0.0]
+
+
+def test_vectorizar_ve_senales_raras():
+    fila = modelo.RasgosAnomalia(
+        factura_id=2, cliente="", fecha=date(2026, 3, 1),
+        total=Decimal("900"), descuento_max_pct=Decimal("0"), anulada=False,
+        numero_serie="F-2", cliente_ruc=None, itbms=Decimal("0"), serie_repetida=True,
+    )
+    assert modelo.vectorizar(fila) == [900.0, 0.0, 0.0, 3.0, 1.0, 1.0, 900.0]
+
+
+def test_desde_factura_copia_las_senales():
+    factura = SimpleNamespace(
+        id=3, cliente_nombre="Acme", cliente_ruc=None, fecha=date(2026, 4, 2),
+        total=Decimal("300"), estado="emitida", numero_serie="F-3",
+        itbms=Decimal("0"), lineas=[SimpleNamespace(descuento_pct=Decimal("5"))],
+    )
+    rasgos = modelo.desde_factura(factura, serie_repetida=True)
+
+    assert rasgos.numero_serie == "F-3"
+    assert rasgos.cliente_ruc is None
+    assert rasgos.itbms == Decimal("0")
+    assert rasgos.serie_repetida is True
+    assert rasgos.descuento_max_pct == Decimal("5")
+
+
+def test_marcar_series_repetidas_solo_la_segunda():
+    filas = [
+        modelo.RasgosAnomalia(1, "A", date(2026, 1, 1), Decimal("1"), Decimal("0"), False, numero_serie="F-1"),
+        modelo.RasgosAnomalia(2, "B", date(2026, 1, 2), Decimal("1"), Decimal("0"), False, numero_serie="F-1"),
+        modelo.RasgosAnomalia(3, "C", date(2026, 1, 3), Decimal("1"), Decimal("0"), False, numero_serie="F-2"),
+    ]
+    marcadas = modelo.marcar_series_repetidas(filas)
+
+    assert [f.serie_repetida for f in marcadas] == [False, True, False]
+    assert all(f.serie_repetida is False for f in filas)  # no muta las originales
 
 
 def test_entrenar_sin_muestras_devuelve_none():
