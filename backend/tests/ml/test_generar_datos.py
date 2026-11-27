@@ -122,16 +122,21 @@ def test_escritura_csv_en_carpeta_generados(tmp_path):
 
 
 def test_archivos_reales_en_generados():
-    dataset = gd.construir_dataset(
-        n_facturas=gd.CANTIDAD_FACTURAS, n_pedidos=50, semilla=gd.SEMILLA
-    )
-    gd.escribir_csvs(dataset, SALIDA_REAL)
-    for nombre in (
-        "facturas_ejemplo.csv",
-        "lineas_factura_ejemplo.csv",
-        "etiquetas_anomalias.csv",
-    ):
-        assert (SALIDA_REAL / nombre).is_file(), nombre
+    """Los CSV versionados se validan, nunca se reescriben desde un test."""
+    nombres = {
+        "facturas_ejemplo.csv": 1000,
+        "lineas_factura_ejemplo.csv": 2521,
+        "pedidos_ejemplo.csv": 400,
+        "lineas_pedido_ejemplo.csv": 830,
+        "etiquetas_anomalias.csv": 55,
+    }
+    for nombre, esperado in nombres.items():
+        ruta = SALIDA_REAL / nombre
+        assert ruta.is_file(), nombre
+        with open(ruta, newline="", encoding="utf-8") as fh:
+            filas = list(csv.DictReader(fh))
+        assert len(filas) == esperado, (nombre, len(filas))
+    assert gd.validar_archivos(SALIDA_REAL) == []
 
 
 def test_etiquetas_anomalias_con_casos_raros():

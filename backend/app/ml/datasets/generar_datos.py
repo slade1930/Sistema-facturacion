@@ -5,7 +5,9 @@ estacionalidad, mas catalogo, pedidos y etiquetas de anomalías.
 Nada de datos reales: todo va marcado con "[DATOS DE EJEMPLO]" y
 "es_ejemplo": true.
 
-Salida (carpeta ignorada por Git): backend/app/ml/datasets/generados/
+Salida: backend/app/ml/datasets/generados/ (CSV versionados).
+Si el entorno define FACTURA_HMAC_KEY se respeta; para regenerar los CSV
+sin cambiar los códigos de verificación, correr sin esa variable.
   - facturas_ejemplo.csv
   - lineas_factura_ejemplo.csv
   - etiquetas_anomalias.csv   (ground truth de los casos raros)
