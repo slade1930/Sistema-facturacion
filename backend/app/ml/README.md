@@ -1,6 +1,6 @@
 # ML — estado real y reparto del equipo
 
-Gente, acá ya no hay un esqueleto sin más: **los datos de ejemplo están listos y probados**; todo lo demás (reglas, features, modelos, entrenamiento, evaluación, inferencia y endpoints) está por hacer. Este archivo es la fuente de verdad del equipo.
+Gente, acá ya no hay un esqueleto sin más: **los datos de ejemplo están listos y probados** y el Módulo 4 ya tiene catálogo, línea base, red local, evaluación y endpoint del asistente; lo demás (reglas, features, inferencia, los otros endpoints y los otros modelos) está por hacer. Este archivo es la fuente de verdad del equipo.
 
 ## 1. Estado real
 
@@ -8,9 +8,9 @@ Listo:
 
 - `datasets/generar_datos.py`: generador reproducible, semilla fija `20261126`, 30 meses de historia, estacionalidad y casos raros inyectados.
 - 5 CSV en `datasets/generados/`: **1000 facturas**, **2521 líneas de factura**, **400 pedidos**, **830 líneas de pedido** y **55 etiquetas de anomalías**.
-- 21 pruebas en `tests/ml/` (1 de entorno, 1 de estructura y 19 del generador).
+- 121 pruebas en `tests/ml/` (120 pasan y 1 se salta: 1 de entorno, 1 de estructura, 19 del generador y 100 del Módulo 4).
 
-Por hacer: `reglas/`, `features/`, `modelos/`, `entrenamiento/`, `evaluacion/`, `inferencia/` y los 4 routers de `api/v1/endpoints/ml/` son stubs (docstrings) o no existen todavía. Ningún modelo está entrenado.
+Ya implementado del Módulo 4: `asistente/catalogo.py`, `asistente/intenciones.py`, `asistente/frases_entrenamiento.py`, `modelos/asistente.py`, `entrenamiento/entrenar_asistente.py`, `evaluacion/asistente.py` y `api/v1/endpoints/ml/asistente.py`. Por hacer: `reglas/`, `features/`, `inferencia/` y los otros 3 routers de `api/v1/endpoints/ml/` siguen siendo stubs (docstrings) o no existen todavía; lo mismo los otros módulos de `evaluacion/`. El único modelo entrenable hoy es la red local del asistente: se entrena con `python -m app.ml.entrenamiento.entrenar_asistente` y queda en `backend/ml_models/asistente.pt` (fuera de Git).
 
 Cómo generar y validar (dentro del contenedor):
 
@@ -83,6 +83,26 @@ Ya creadas desde `ml`: `ml-anomalias`, `ml-pronostico`, `ml-recomendaciones` y `
 | Luis | `ml-asistente` (Módulo 4) | Modelo local = red pequeña en PyTorch (bolsa de palabras → capa oculta → 6 intenciones) entrenada con frases de ejemplo, sin descargar nada; evaluación contra la línea base de palabras clave; `POST /ml/asistente/consultar` con respuesta desde datos reales y "no entendí" si la confianza es baja | `app/ml/modelos/asistente.py`, `app/ml/asistente/frases_entrenamiento.py`, `app/ml/evaluacion/asistente.py`, `app/api/v1/endpoints/ml/asistente.py` | `test_modelo_asistente.py`, `test_evaluacion_asistente.py`, `test_api_asistente.py` | Respuesta desde repositorios reales, sin servicios externos, con "no entendí". |
 
 El Módulo 4 depende de los módulos 1 a 3 (en revisión, anomalías) y de la revisión de Antony. El catálogo y el clasificador pueden avanzar ya sin modelo.
+
+### Módulo 4 — asistente (Fernando y Luis)
+
+Métricas con semilla fija `20261126`, 54 frases de entrenamiento (9 por intención) y 12 de validación separadas (2 por intención, sin solapamiento con las de entrenamiento):
+
+| Evaluación | Línea base (palabras clave) | Red local |
+|---|---|---|
+| Frases de entrenamiento | — | 54/54 |
+| Frases de validación | 10/12 (83,3 %) | 12/12 (100 %) |
+
+- Los siete casos que Flinn marcó como FAIL en la revisión devuelven ahora la intención correcta y los parámetros del propio texto: `ventas por mes en octubre de 2026` → `{mes: 10, anio: 2026}`; `ventas de este año` → `{anio: 2026}`; `ventas por cliente Acme` → `{cliente: "acme"}`; `Ventas del cliente 3` → `{cliente_id: 3}`; `facturas anuladas en 2026` → `{anio: 2026}`; `top 3 productos en 2026` → `{anio: 2026, n: 3}`; `facturas en revisión` → `{}`.
+- Dos entrenamientos seguidos producen exactamente los mismos pesos (`torch.manual_seed(20261126)` dentro de `ajustar()`); con otra semilla los pesos cambian.
+- La tokenización usa `re.findall(r"[a-z0-9]+", ...)`: sin signos `¿` / `?` y sin acentos.
+- Los parámetros ya no se copian de `clasificar()`: `predecir()` llama a `extraer_parametros()` con la frase normalizada, así que nunca se mezclan la intención de la red con los parámetros de otra regla.
+- Cliente por razón social: `extraer_parametros()` captura el nombre completo (por ejemplo `Acme S.A.`), y `catalogo.clientes_coinciden()` compara normalizando puntuación y acentos y aceptando sufijos legales (`S.A.`, `SRL`, `Ltda.`). Así `cliente="acme"` devuelve la factura de `Acme S.A.` sin confundirla con `Acme Sur`.
+- `ajustar()` valida entradas: con frases vacías, longitudes distintas, frases en blanco o etiquetas desconocidas devuelve `None` en vez de lanzar `ValueError`.
+- Sin `torch`: `disponible()` es `False` y `predecir()`, `guardar()` y `ajustar()` devuelven `None`. Un `.pt` corrupto, una frase vacía o una frase con tokens desconocidos también devuelven `None` en vez de romper la app.
+- `evaluacion/asistente.py` genera las métricas de arriba con `evaluar_asistente(frases=FRASES_VALIDACION, nombre_modelo=..., hoy=...)`: compara la línea base contra la red local; sin modelo o con un `.pt` corrupto devuelve `evaluado=False` y `red_local=None`, y la app sigue andando. `test_evaluacion_asistente.py` cubre 7 casos, incluido el detalle con parámetros y confianza.
+- `POST /ml/asistente/consultar` usa la red si hay predicción y si no la línea base; responde `{"evaluado", "modelo", "resultado"}` desde `catalogo.CATALOGO` (repositorios existentes, nunca SQL generado) y devuelve "no entendí" cuando ninguna intención responde. Sin modelo el `modelo` es `linea-base-palabras-clave`. Errores con `{"detail", "code"}` y sin `db.commit()` porque es solo lectura. `test_api_asistente.py` cubre 7 casos.
+- El router del asistente ya está registrado en `app/api/v1/router.py`: `/api/v1/ml/asistente/consultar` aparece en el OpenAPI (33 rutas). `router.py` sigue siendo de Moisés: él lo registró en el PR #29.
 
 ### Archivos compartidos, con un solo dueño
 
