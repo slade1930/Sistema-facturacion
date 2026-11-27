@@ -14,4 +14,4 @@ El proyecto está desarrollado en **Python 3.12** y utiliza las siguientes libre
 *   **python-multipart:** `0.0.33` (Manejo de formularios y subida de archivos).
 *   **PostgreSQL:** Base de datos relacional (corre vía Docker).
 *   **Docker y Docker Compose:** Para levantar el entorno completo.
-*   **NiceGUI:** planeado para la interfaz; hoy `ui/` está vacío y no hay dependencia ni servicio en Docker. Por ahora se usa Swagger UI.
+*   **NiceGUI:** `3.19.0`, interfaz implementada en `ui/` (13 rutas) con servicio en Docker Compose en el puerto `8080`; usa `httpx` `0.28.1` desde el servidor, sin CORS.
