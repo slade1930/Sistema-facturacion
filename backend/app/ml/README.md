@@ -1,6 +1,6 @@
 # ML — estado real y reparto del equipo
 
-Gente, acá ya no hay un esqueleto sin más: **los datos de ejemplo están listos y probados** y el Módulo 4 ya tiene catálogo, línea base, red local, evaluación y endpoint del asistente; lo demás (reglas, features, inferencia, los otros endpoints y los otros modelos) está por hacer. Este archivo es la fuente de verdad del equipo.
+Gente, acá ya no hay un esqueleto sin más: **los datos de ejemplo están listos y probados**, el Módulo 4 tiene catálogo, línea base, red local, evaluación y endpoint del asistente, y el Módulo 1 (anomalías) ya está integrado en `desarrollo`. Pronóstico y recomendaciones se integran en los siguientes PRs. Este archivo es la fuente de verdad del equipo.
 
 ## 1. Estado real
 
@@ -8,9 +8,9 @@ Listo:
 
 - `datasets/generar_datos.py`: generador reproducible, semilla fija `20261126`, 30 meses de historia, estacionalidad y casos raros inyectados.
 - 5 CSV en `datasets/generados/`: **1000 facturas**, **2521 líneas de factura**, **400 pedidos**, **830 líneas de pedido** y **55 etiquetas de anomalías**.
-- 121 pruebas en `tests/ml/` (120 pasan y 1 se salta: 1 de entorno, 1 de estructura, 19 del generador y 100 del Módulo 4).
+- Pruebas en `tests/ml/` para el generador, el Módulo 4 (asistente) y el Módulo 1 (anomalías); el total exacto se verifica en la corrida final de cada PR.
 
-Ya implementado del Módulo 4: `asistente/catalogo.py`, `asistente/intenciones.py`, `asistente/frases_entrenamiento.py`, `modelos/asistente.py`, `entrenamiento/entrenar_asistente.py`, `evaluacion/asistente.py` y `api/v1/endpoints/ml/asistente.py`. Por hacer: `reglas/`, `features/`, `inferencia/` y los otros 3 routers de `api/v1/endpoints/ml/` siguen siendo stubs (docstrings) o no existen todavía; lo mismo los otros módulos de `evaluacion/`. El único modelo entrenable hoy es la red local del asistente: se entrena con `python -m app.ml.entrenamiento.entrenar_asistente` y queda en `backend/ml_models/asistente.pt` (fuera de Git).
+Ya implementado del Módulo 4: `asistente/catalogo.py`, `asistente/intenciones.py`, `asistente/frases_entrenamiento.py`, `modelos/asistente.py`, `entrenamiento/entrenar_asistente.py`, `evaluacion/asistente.py` y `api/v1/endpoints/ml/asistente.py`. Ya implementado del Módulo 1: `features/anomalias.py`, `reglas/anomalias.py`, `modelos/anomalias.py`, `entrenamiento/entrenar_anomalias.py`, `evaluacion/anomalias.py` y `api/v1/endpoints/ml/anomalias.py`. Siguen por integrar el pronóstico y las recomendaciones. La red local del asistente se entrena con `python -m app.ml.entrenamiento.entrenar_asistente` y queda en `backend/ml_models/asistente.pt` (fuera de Git).
 
 Cómo generar y validar (dentro del contenedor):
 
@@ -117,3 +117,11 @@ Métricas con semilla fija `20261126`, 54 frases de entrenamiento (9 por intenci
 ## 9. Orden de cada módulo
 
 features o reglas → modelos → entrenamiento → evaluación → endpoint → pruebas → README → PR hacia `ml`.
+
+## 10. Módulo 1 integrado en `desarrollo`
+
+- `POST /api/v1/ml/anomalias/evaluar/{factura_id}` está registrado en `app/api/v1/router.py` y protegido con `X-API-Key`.
+- `en_revision` es una columna booleana propia (migración `20261127_0004`), separada del valor `en_revision` del enum. El modelo solo sugiere: nunca cambia `estado` `emitida`/`anulada`.
+- `serie_repetida` se detecta con `FacturaRepository.existe_numero_serie()` y se pasa a `modelo.desde_factura(factura, serie_repetida=...)` tanto al crear como al evaluar. El hook de creación es best-effort: si falla, la factura se crea igual.
+- Sin `backend/ml_models/anomalias.pkl`, el endpoint responde `evaluado: false`, `modelo: null` y `resultado` con `factura_id`, puntaje/en_revision/motivo en `null`/`false`; la app sigue funcionando.
+- `catalogo.facturas_en_revision()` filtra por la columna booleana, no por el enum, para encontrar las facturas marcadas por el modelo.

@@ -5,6 +5,7 @@ Sin base de datos: todo corre en memoria y con CSV temporales.
 import csv
 import json
 from datetime import date, timedelta
+from decimal import Decimal
 from pathlib import Path
 
 import pytest
@@ -121,16 +122,21 @@ def test_escritura_csv_en_carpeta_generados(tmp_path):
 
 
 def test_archivos_reales_en_generados():
-    dataset = gd.construir_dataset(
-        n_facturas=gd.CANTIDAD_FACTURAS, n_pedidos=50, semilla=gd.SEMILLA
-    )
-    gd.escribir_csvs(dataset, SALIDA_REAL)
-    for nombre in (
-        "facturas_ejemplo.csv",
-        "lineas_factura_ejemplo.csv",
-        "etiquetas_anomalias.csv",
-    ):
-        assert (SALIDA_REAL / nombre).is_file(), nombre
+    """Los CSV versionados se validan, nunca se reescriben desde un test."""
+    nombres = {
+        "facturas_ejemplo.csv": 1000,
+        "lineas_factura_ejemplo.csv": 2521,
+        "pedidos_ejemplo.csv": 400,
+        "lineas_pedido_ejemplo.csv": 830,
+        "etiquetas_anomalias.csv": 55,
+    }
+    for nombre, esperado in nombres.items():
+        ruta = SALIDA_REAL / nombre
+        assert ruta.is_file(), nombre
+        with open(ruta, newline="", encoding="utf-8") as fh:
+            filas = list(csv.DictReader(fh))
+        assert len(filas) == esperado, (nombre, len(filas))
+    assert gd.validar_archivos(SALIDA_REAL) == []
 
 
 def test_etiquetas_anomalias_con_casos_raros():
@@ -144,6 +150,29 @@ def test_etiquetas_anomalias_con_casos_raros():
     }
     # Las series duplicadas inyectadas están documentadas.
     assert "serie_duplicada" in tipos
+
+
+def test_descuento_alto_si_aplica_descuento_real():
+    """El caso raro tiene que verse en las líneas y en el total."""
+    dataset = gd.construir_dataset(n_facturas=250, n_pedidos=10)
+    por_id = {f["id"]: f for f in dataset["facturas"]}
+    ids = [
+        int(e["factura_id"]) for e in dataset["etiquetas_anomalias"]
+        if e["tipo_anomalia"] == "descuento_alto"
+    ]
+
+    assert ids, "la muestra debe incluir el caso descuento_alto"
+    for fid in ids:
+        factura = por_id[fid]
+        assert factura["lineas"]
+        assert all(
+            Decimal(linea["descuento_pct"]) >= Decimal("40")
+            for linea in factura["lineas"]
+        )
+        subtotal = Decimal(factura["subtotal"])
+        descuento = Decimal(factura["descuento_total"])
+        assert subtotal > 0
+        assert descuento / subtotal >= Decimal("0.4")
 
 
 def test_numeros_de_verificacion_reales_de_12_chars():

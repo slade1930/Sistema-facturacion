@@ -172,6 +172,10 @@ class Factura(Base):
         default=EstadoFactura.EMITIDA,
         server_default=EstadoFactura.EMITIDA.value,
     )
+    # Sugerencia del modelo, no el estado emitida/anulada.
+    en_revision: Mapped[bool] = mapped_column(
+        Boolean, nullable=False, default=False, server_default="false"
+    )
     puntaje_anomalia: Mapped[Decimal | None] = mapped_column(
         Numeric(6, 2), nullable=True
     )

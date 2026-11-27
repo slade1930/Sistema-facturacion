@@ -86,6 +86,9 @@ class FacturaRead(BaseModel):
     total: Decimal
 
     estado: EstadoFactura
+    en_revision: bool = False
+    puntaje_anomalia: Optional[Decimal] = None
+    motivo_anomalia: Optional[str] = None
     fecha_creacion: datetime
     fecha_anulacion: Optional[datetime] = None
     lineas: list[LineaFacturaRead] = []

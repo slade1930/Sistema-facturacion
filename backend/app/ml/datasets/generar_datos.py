@@ -5,7 +5,9 @@ estacionalidad, mas catalogo, pedidos y etiquetas de anomalías.
 Nada de datos reales: todo va marcado con "[DATOS DE EJEMPLO]" y
 "es_ejemplo": true.
 
-Salida (carpeta ignorada por Git): backend/app/ml/datasets/generados/
+Salida: backend/app/ml/datasets/generados/ (CSV versionados).
+Si el entorno define FACTURA_HMAC_KEY se respeta; para regenerar los CSV
+sin cambiar los códigos de verificación, correr sin esa variable.
   - facturas_ejemplo.csv
   - lineas_factura_ejemplo.csv
   - etiquetas_anomalias.csv   (ground truth de los casos raros)
@@ -293,9 +295,10 @@ def _nueva_linea(rng, producto, orden, objetivo, caso):
     if caso == "total_muy_alto" and orden == 1:
         cantidad = Decimal("250")
 
-    descuento_pct = d(
-        rng.choice([0, 0, 0, 5, 10, 30 if caso == "descuento_alto" else 15])
-    )
+    # El caso raro tiene que notarse de verdad: siempre por encima del 30 %.
+    # Un solo choice por línea mantiene la semilla y el resto del dataset igual.
+    opciones = (40, 45, 50) if caso == "descuento_alto" else (0, 0, 0, 5, 10, 15)
+    descuento_pct = d(rng.choice(opciones))
     gravada = producto["aplica_itbms"] and caso != "sin_itbms"
 
     return {
@@ -550,7 +553,7 @@ def _fila(campo_valores, campos):
 
 def _escribir_csv(ruta, campos, filas):
     with open(ruta, "w", newline="", encoding="utf-8") as fh:
-        writer = csv.DictWriter(fh, fieldnames=campos)
+        writer = csv.DictWriter(fh, fieldnames=campos, lineterminator="\n")
         writer.writeheader()
         for fila in filas:
             writer.writerow(_fila(fila, campos))
@@ -635,6 +638,21 @@ def leer_dataset_csv(directorio=SALIDA):
         facturas.append(factura)
 
     return facturas, etiquetas_raw
+
+
+def cargar_dataset_ml(directorio=SALIDA):
+    """Dataset plano para ML: facturas con líneas + líneas sueltas + tags."""
+    facturas, etiquetas = leer_dataset_csv(directorio)
+    lineas = [
+        dict(linea)
+        for factura in facturas
+        for linea in factura.get("lineas", [])
+    ]
+    return {
+        "facturas": facturas,
+        "lineas_factura": lineas,
+        "etiquetas_anomalias": etiquetas,
+    }
 
 
 def validar_dataset(facturas, etiquetas=None, meses_min=24, meses_max=36,

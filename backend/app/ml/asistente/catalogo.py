@@ -152,6 +152,7 @@ def _facturas(
     cliente=None,
     cliente_id=None,
     estado=None,
+    en_revision=None,
     solo_facturables=False,
     hoy=None,
 ):
@@ -169,6 +170,7 @@ def _facturas(
         lote = FacturaRepository.listar(
             db,
             estado=estado,
+            en_revision=en_revision,
             fecha_desde=fecha_desde,
             fecha_hasta=fecha_hasta,
             cliente=cliente if cliente_id is not None else None,
@@ -475,7 +477,7 @@ def facturas_en_revision(
         hasta=hasta,
         cliente=cliente,
         cliente_id=cliente_id,
-        estado=EstadoFactura.EN_REVISION,
+        en_revision=True,
         hoy=hoy,
     )
     return {
