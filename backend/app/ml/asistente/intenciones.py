@@ -14,6 +14,7 @@ from datetime import date, timedelta
 from app.ml.asistente.catalogo import CATALOGO
 
 UMBRAL_CONFIANZA = 0.5
+FECHA_INVALIDA = "_fecha_invalida"
 
 MESES = {
     "enero": 1,
@@ -72,28 +73,32 @@ def extraer_fechas(texto: str, hoy: date | None = None) -> dict:
     completa = _PATRON_FECHA_COMPLETA.search(texto)
     if completa:
         anio, mes, dia = (int(grupo) for grupo in completa.groups())
-        if 1 <= mes <= 12 and 1 <= dia <= 31:
-            parametros.update({"anio": anio, "mes": mes, "dia": dia})
-            return parametros
+        try:
+            fecha = date(anio, mes, dia)
+        except ValueError:
+            return {FECHA_INVALIDA: True}
+        return {"anio": fecha.year, "mes": fecha.month, "dia": fecha.day}
 
     rango = _PATRON_RANGO.search(texto)
     if rango:
         primero = MESES.get(rango.group(1))
         ultimo = MESES.get(rango.group(2))
         anio = int(rango.group(3))
-        if primero and ultimo and primero <= ultimo:
-            parametros["desde"] = date(anio, primero, 1).isoformat()
-            parametros["hasta"] = date(
-                anio, ultimo, calendar.monthrange(anio, ultimo)[1]
-            ).isoformat()
-            return parametros
+        if not primero or not ultimo or primero > ultimo:
+            return {FECHA_INVALIDA: True}
+        parametros["desde"] = date(anio, primero, 1).isoformat()
+        parametros["hasta"] = date(
+            anio, ultimo, calendar.monthrange(anio, ultimo)[1]
+        ).isoformat()
+        return parametros
 
     anio_mes = _PATRON_AnioMes.search(texto)
     if anio_mes:
         anio, mes = int(anio_mes.group(1)), int(anio_mes.group(2))
-        if 1 <= mes <= 12:
-            parametros.update({"anio": anio, "mes": mes})
-            return parametros
+        if not 1 <= mes <= 12:
+            return {FECHA_INVALIDA: True}
+        parametros.update({"anio": anio, "mes": mes})
+        return parametros
 
     if "ayer" in texto:
         fecha = hoy - timedelta(days=1)
@@ -129,6 +134,8 @@ def clasificar(pregunta: str, hoy: date | None = None) -> Intencion | None:
         return None
 
     parametros = extraer_fechas(texto, hoy)
+    if FECHA_INVALIDA in parametros:
+        return None
 
     cliente = _PATRON_CLIENTE.search(texto)
     if cliente:

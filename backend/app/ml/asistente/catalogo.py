@@ -16,6 +16,7 @@ from app.repositories.catalogo import ClienteB2BRepository
 from app.repositories.facturacion import FacturaRepository
 
 LIMITE = 10_000
+PAGINA = 1000
 CENTAVOS = Decimal("0.01")
 NOTA_PRODUCTOS = (
     "suma montos netos de línea, sin ITBMS ni portes; agrupa por producto_id cuando existe"
@@ -70,9 +71,10 @@ def _fecha(valor):
     return date.fromisoformat(str(valor))
 
 
-def _rango(anio=None, mes=None, dia=None, desde=None, hasta=None):
+def _rango(anio=None, mes=None, dia=None, desde=None, hasta=None, hoy=None):
     if desde is not None or hasta is not None:
         return _fecha(desde), _fecha(hasta)
+    hoy = hoy or date.today()
     if anio and mes and dia:
         fecha = date(int(anio), int(mes), int(dia))
         return fecha, fecha
@@ -84,7 +86,6 @@ def _rango(anio=None, mes=None, dia=None, desde=None, hasta=None):
         anio = int(anio)
         return date(anio, 1, 1), date(anio, 12, 31)
     if mes:
-        hoy = date.today()
         mes = int(mes)
         ultimo = calendar.monthrange(hoy.year, mes)[1]
         return date(hoy.year, mes, 1), date(hoy.year, mes, ultimo)
@@ -103,6 +104,7 @@ def _facturas(
     cliente_id=None,
     estado=None,
     solo_facturables=False,
+    hoy=None,
 ):
     nota = None
     if cliente_id is not None:
@@ -111,20 +113,40 @@ def _facturas(
             return [], False, f"cliente {cliente_id} no existe"
         cliente = registro.nombre_empresa
 
-    fecha_desde, fecha_hasta = _rango(anio, mes, dia, desde, hasta)
-    resultados = FacturaRepository.listar(
-        db,
-        estado=estado,
-        fecha_desde=fecha_desde,
-        fecha_hasta=fecha_hasta,
-        cliente=cliente,
-        limit=LIMITE + 1,
-    )
+    fecha_desde, fecha_hasta = _rango(anio, mes, dia, desde, hasta, hoy)
+    resultados = []
+    skip = 0
+    while len(resultados) <= LIMITE:
+        lote = FacturaRepository.listar(
+            db,
+            estado=estado,
+            fecha_desde=fecha_desde,
+            fecha_hasta=fecha_hasta,
+            cliente=cliente,
+            skip=skip,
+            limit=PAGINA,
+        )
+        if not lote:
+            break
+        skip += len(lote)
+        for factura in lote:
+            if solo_facturables and not _es_facturable(factura):
+                continue
+            if cliente is not None and cliente_id is None:
+                nombre = (
+                    getattr(factura, "cliente_nombre", "") or ""
+                ).strip().casefold()
+                if nombre != cliente.strip().casefold():
+                    continue
+            resultados.append(factura)
+            if len(resultados) > LIMITE:
+                break
+        if len(lote) < PAGINA:
+            break
+
     truncado = len(resultados) > LIMITE
     if truncado:
         resultados = resultados[:LIMITE]
-    if solo_facturables:
-        resultados = [f for f in resultados if _es_facturable(f)]
     return resultados, truncado, nota
 
 
@@ -172,7 +194,13 @@ def _filtros(
 def _clave_producto(linea):
     producto_id = getattr(linea, "producto_id", None)
     descripcion = getattr(linea, "descripcion", None) or "(sin descripción)"
-    return (int(producto_id) if producto_id is not None else None, descripcion)
+    if producto_id is not None:
+        return ("id", int(producto_id))
+    return ("descripcion", descripcion)
+
+
+def _producto_id(clave):
+    return clave[1] if clave[0] == "id" else None
 
 
 def _detalle(texto, nota) -> str:
@@ -189,6 +217,7 @@ def ventas_por_mes(
     hasta=None,
     cliente=None,
     cliente_id=None,
+    hoy=None,
 ) -> dict:
     facturas, truncado, nota = _facturas(
         db,
@@ -200,6 +229,7 @@ def ventas_por_mes(
         cliente=cliente,
         cliente_id=cliente_id,
         solo_facturables=True,
+        hoy=hoy,
     )
     totales = defaultdict(lambda: Decimal("0.00"))
     cantidades = defaultdict(int)
@@ -218,7 +248,9 @@ def ventas_por_mes(
     ]
     return {
         "consulta": "ventas_por_mes",
-        "filtros": _filtros(anio, mes, cliente, cliente_id=cliente_id, dia=dia, desde=desde, hasta=hasta),
+        "filtros": _filtros(
+            anio, mes, cliente, cliente_id=cliente_id, dia=dia, desde=desde, hasta=hasta
+        ),
         "datos": datos,
         "total": _dinero(sum(totales.values(), Decimal("0.00"))),
         "truncado": truncado,
@@ -238,6 +270,7 @@ def ventas_por_cliente(
     hasta=None,
     cliente=None,
     cliente_id=None,
+    hoy=None,
 ) -> dict:
     facturas, truncado, nota = _facturas(
         db,
@@ -249,6 +282,7 @@ def ventas_por_cliente(
         cliente=cliente,
         cliente_id=cliente_id,
         solo_facturables=True,
+        hoy=hoy,
     )
     totales = defaultdict(lambda: Decimal("0.00"))
     cantidades = defaultdict(int)
@@ -267,7 +301,9 @@ def ventas_por_cliente(
     ]
     return {
         "consulta": "ventas_por_cliente",
-        "filtros": _filtros(anio, mes, cliente, cliente_id=cliente_id, dia=dia, desde=desde, hasta=hasta),
+        "filtros": _filtros(
+            anio, mes, cliente, cliente_id=cliente_id, dia=dia, desde=desde, hasta=hasta
+        ),
         "datos": datos,
         "total": _dinero(sum(totales.values(), Decimal("0.00"))),
         "truncado": truncado,
@@ -287,6 +323,7 @@ def ventas_por_producto(
     hasta=None,
     cliente=None,
     cliente_id=None,
+    hoy=None,
 ) -> dict:
     facturas, truncado, nota = _facturas(
         db,
@@ -298,6 +335,7 @@ def ventas_por_producto(
         cliente=cliente,
         cliente_id=cliente_id,
         solo_facturables=True,
+        hoy=hoy,
     )
     totales = defaultdict(lambda: Decimal("0.00"))
     unidades = defaultdict(lambda: Decimal("0.00"))
@@ -305,22 +343,25 @@ def ventas_por_producto(
     for factura in facturas:
         for linea in getattr(factura, "lineas", ()):
             clave = _clave_producto(linea)
-            nombres[clave] = clave[1]
+            descripcion = getattr(linea, "descripcion", None) or "(sin descripción)"
+            nombres.setdefault(clave, descripcion)
             totales[clave] += Decimal(str(getattr(linea, "monto", "0")))
             unidades[clave] += Decimal(str(getattr(linea, "cantidad", "0")))
 
     datos = [
         {
-            "producto_id": clave[0],
+            "producto_id": _producto_id(clave),
             "producto": nombres[clave],
             "unidades": _dinero(unidades[clave]),
             "total": _dinero(totales[clave]),
         }
-        for clave in sorted(totales, key=lambda c: (nombres[c], c[0] or 0))
+        for clave in sorted(totales, key=lambda c: (nombres[c], str(c[1])))
     ]
     return {
         "consulta": "ventas_por_producto",
-        "filtros": _filtros(anio, mes, cliente, cliente_id=cliente_id, dia=dia, desde=desde, hasta=hasta),
+        "filtros": _filtros(
+            anio, mes, cliente, cliente_id=cliente_id, dia=dia, desde=desde, hasta=hasta
+        ),
         "datos": datos,
         "total": _dinero(sum(totales.values(), Decimal("0.00"))),
         "truncado": truncado,
@@ -339,6 +380,7 @@ def facturas_anuladas(
     hasta=None,
     cliente=None,
     cliente_id=None,
+    hoy=None,
 ) -> dict:
     facturas, truncado, nota = _facturas(
         db,
@@ -350,10 +392,13 @@ def facturas_anuladas(
         cliente=cliente,
         cliente_id=cliente_id,
         estado=EstadoFactura.ANULADA,
+        hoy=hoy,
     )
     return {
         "consulta": "facturas_anuladas",
-        "filtros": _filtros(anio, mes, cliente, cliente_id=cliente_id, dia=dia, desde=desde, hasta=hasta),
+        "filtros": _filtros(
+            anio, mes, cliente, cliente_id=cliente_id, dia=dia, desde=desde, hasta=hasta
+        ),
         "datos": [_fila_factura(factura) for factura in facturas],
         "cantidad": len(facturas),
         "truncado": truncado,
@@ -371,6 +416,7 @@ def facturas_en_revision(
     hasta=None,
     cliente=None,
     cliente_id=None,
+    hoy=None,
 ) -> dict:
     facturas, truncado, nota = _facturas(
         db,
@@ -382,10 +428,13 @@ def facturas_en_revision(
         cliente=cliente,
         cliente_id=cliente_id,
         estado=EstadoFactura.EN_REVISION,
+        hoy=hoy,
     )
     return {
         "consulta": "facturas_en_revision",
-        "filtros": _filtros(anio, mes, cliente, cliente_id=cliente_id, dia=dia, desde=desde, hasta=hasta),
+        "filtros": _filtros(
+            anio, mes, cliente, cliente_id=cliente_id, dia=dia, desde=desde, hasta=hasta
+        ),
         "datos": [_fila_factura(factura) for factura in facturas],
         "cantidad": len(facturas),
         "truncado": truncado,
@@ -404,6 +453,7 @@ def top_productos(
     hasta=None,
     cliente=None,
     cliente_id=None,
+    hoy=None,
 ) -> dict:
     facturas, truncado, nota = _facturas(
         db,
@@ -415,6 +465,7 @@ def top_productos(
         cliente=cliente,
         cliente_id=cliente_id,
         solo_facturables=True,
+        hoy=hoy,
     )
     unidades = defaultdict(lambda: Decimal("0.00"))
     totales = defaultdict(lambda: Decimal("0.00"))
@@ -422,7 +473,8 @@ def top_productos(
     for factura in facturas:
         for linea in getattr(factura, "lineas", ()):
             clave = _clave_producto(linea)
-            nombres[clave] = clave[1]
+            descripcion = getattr(linea, "descripcion", None) or "(sin descripción)"
+            nombres.setdefault(clave, descripcion)
             unidades[clave] += Decimal(str(getattr(linea, "cantidad", "0")))
             totales[clave] += Decimal(str(getattr(linea, "monto", "0")))
 
@@ -432,7 +484,7 @@ def top_productos(
     )[:n]
     datos = [
         {
-            "producto_id": clave[0],
+            "producto_id": _producto_id(clave),
             "producto": nombres[clave],
             "unidades": _dinero(unidades[clave]),
             "total": _dinero(totales[clave]),
@@ -442,7 +494,14 @@ def top_productos(
     return {
         "consulta": "top_productos",
         "filtros": _filtros(
-            anio, mes, cliente, cliente_id=cliente_id, dia=dia, desde=desde, hasta=hasta, n=n
+            anio,
+            mes,
+            cliente,
+            cliente_id=cliente_id,
+            dia=dia,
+            desde=desde,
+            hasta=hasta,
+            n=n,
         ),
         "datos": datos,
         "truncado": truncado,

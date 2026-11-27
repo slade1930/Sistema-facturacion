@@ -49,6 +49,19 @@ def test_clasificar_fechas_relativas_y_rangos(pregunta, parametros):
     assert resultado.parametros == parametros
 
 
+@pytest.mark.parametrize(
+    "pregunta",
+    [
+        "Ventas del 2026-02-31",
+        "Ventas del 2026-13-05",
+        "Ventas de 2026-13",
+        "Ventas entre marzo y enero de 2026",
+    ],
+)
+def test_fechas_invalidas_o_invertidas_no_clasifican(pregunta):
+    assert intenciones.clasificar(pregunta, hoy=HOY) is None
+
+
 def test_clasificar_sin_intencion_devuelve_none():
     assert intenciones.clasificar("hola, ¿cómo estás?") is None
     assert intenciones.clasificar("   ") is None

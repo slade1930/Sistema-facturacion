@@ -86,6 +86,7 @@ def repositorio(monkeypatch):
                 "fecha_desde": fecha_desde,
                 "fecha_hasta": fecha_hasta,
                 "cliente": cliente,
+                "skip": skip,
                 "limit": limit,
             }
         )
@@ -138,7 +139,7 @@ def test_ventas_por_mes_excluye_anuladas_y_filtra(repositorio):
     assert resultado["truncado"] is False
     assert repositorio[0]["fecha_desde"] == date(2026, 10, 1)
     assert repositorio[0]["fecha_hasta"] == date(2026, 10, 31)
-    assert repositorio[0]["limit"] == catalogo.LIMITE + 1
+    assert repositorio[0]["limit"] == catalogo.PAGINA
 
 
 def test_ventas_por_cliente_agrupa(repositorio):
@@ -196,12 +197,61 @@ def test_cliente_inexistente_devuelve_vacio(repositorio):
     assert repositorio == []
 
 
+def test_filtro_por_nombre_es_exacto(monkeypatch):
+    datos = (
+        _factura(1, date(2026, 10, 5), "10.00", EstadoFactura.EMITIDA, "Acme"),
+        _factura(2, date(2026, 10, 6), "20.00", EstadoFactura.EMITIDA, "Acme Sur"),
+    )
+    monkeypatch.setattr(
+        catalogo.FacturaRepository, "listar", staticmethod(lambda db, **kw: list(datos))
+    )
+    resultado = catalogo.ventas_por_cliente(None, cliente="Acme")
+    assert [fila["cliente"] for fila in resultado["datos"]] == ["Acme"]
+    assert resultado["total"] == "10.00"
+
+
 def test_truncamiento_se_reporta(monkeypatch, repositorio):
     monkeypatch.setattr(catalogo, "LIMITE", 2)
     resultado = catalogo.ventas_por_mes(None)
     assert resultado["truncado"] is True
-    assert repositorio[0]["limit"] == 3
+    assert repositorio[0]["limit"] == catalogo.PAGINA
     assert len(resultado["datos"]) <= 2
+
+
+def test_truncamiento_cuenta_solo_facturables(monkeypatch):
+    datos = (
+        _factura(1, date(2026, 10, 1), "10.00", EstadoFactura.ANULADA, "Acme"),
+        _factura(2, date(2026, 10, 2), "20.00", EstadoFactura.ANULADA, "Acme"),
+        _factura(3, date(2026, 10, 3), "30.00", EstadoFactura.EMITIDA, "Acme"),
+    )
+    monkeypatch.setattr(
+        catalogo.FacturaRepository, "listar", staticmethod(lambda db, **kw: list(datos))
+    )
+    monkeypatch.setattr(catalogo, "LIMITE", 1)
+    resultado = catalogo.ventas_por_mes(None)
+    assert resultado["total"] == "30.00"
+    assert resultado["truncado"] is False
+
+
+def test_producto_id_agrupa_descripciones_distintas(monkeypatch):
+    datos = (
+        _factura(
+            1,
+            date(2026, 10, 1),
+            "100.00",
+            EstadoFactura.EMITIDA,
+            "Acme",
+            (_linea("Agua", 1, "70.00", 1), _linea("Agua light", 1, "30.00", 1)),
+        ),
+    )
+    monkeypatch.setattr(
+        catalogo.FacturaRepository, "listar", staticmethod(lambda db, **kw: list(datos))
+    )
+    resultado = catalogo.ventas_por_producto(None)
+    assert len(resultado["datos"]) == 1
+    assert resultado["datos"][0]["producto_id"] == 1
+    assert resultado["datos"][0]["producto"] == "Agua"
+    assert resultado["datos"][0]["total"] == "100.00"
 
 
 def test_dia_y_rango_se_envian_al_repositorio(repositorio):
@@ -211,6 +261,12 @@ def test_dia_y_rango_se_envian_al_repositorio(repositorio):
     catalogo.ventas_por_mes(None, desde="2026-01-01", hasta="2026-03-31")
     assert repositorio[1]["fecha_desde"] == date(2026, 1, 1)
     assert repositorio[1]["fecha_hasta"] == date(2026, 3, 31)
+
+
+def test_mes_sin_anio_usa_hoy_inyectable(repositorio):
+    catalogo.ventas_por_mes(None, mes=10, hoy=date(2026, 11, 26))
+    assert repositorio[0]["fecha_desde"] == date(2026, 10, 1)
+    assert repositorio[0]["fecha_hasta"] == date(2026, 10, 31)
 
 
 def test_redondeo_es_half_up():
