@@ -75,6 +75,20 @@ def test_modelo_entrenado_mejora_la_linea_base(modelo_entrenado):
     }
 
 
+def test_modelo_corrupto_no_cuenta_como_evaluado(modelo_entrenado, tmp_path, monkeypatch):
+    ruta = tmp_path / "roto.pt"
+    ruta.write_bytes(b"roto")
+    monkeypatch.setattr(modelo, "cargar_modelo", lambda nombre: ruta)
+
+    resultado = evaluar_asistente(hoy=HOY)
+
+    assert resultado["evaluado"] is False
+    assert resultado["modelo"] is None
+    assert resultado["red_local"] is None
+    assert all(fila["modelo"] is None for fila in resultado["detalle"])
+    assert all(fila["confianza"] is None for fila in resultado["detalle"])
+
+
 def test_detalle_incluye_parametros_y_confianza(modelo_entrenado):
     detalle = evaluar_asistente(hoy=HOY)["detalle"]
     by_frase = {fila["frase"]: fila for fila in detalle}

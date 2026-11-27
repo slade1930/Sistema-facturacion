@@ -31,9 +31,11 @@ def evaluar_asistente(
     aciertos_base = 0
     aciertos_modelo = 0
     detalle = []
+    predicciones = []
     for frase, esperado in frases:
         base = clasificar(frase, hoy=hoy)
         prediccion = modelo.predecir(frase, nombre_modelo, hoy=hoy) if evaluado else None
+        predicciones.append(prediccion)
         nombre_base = base.nombre if base else None
         nombre_predicho = prediccion.nombre if prediccion else None
         aciertos_base += nombre_base == esperado
@@ -50,6 +52,8 @@ def evaluar_asistente(
             }
         )
     total = len(frases)
+    if evaluado and predicciones and not any(predicciones):
+        evaluado = False
     return {
         "evaluado": evaluado,
         "modelo": modelo.NOMBRE_PUBLICO if evaluado else None,
