@@ -2,22 +2,38 @@ from datetime import datetime
 from decimal import Decimal
 from typing import Annotated
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 # Dinero: NUMERIC(14,2) en la base. Siempre Decimal, nunca float.
 Dinero = Annotated[Decimal, Field(ge=0, max_digits=14, decimal_places=2)]
 DineroCorto = Annotated[Decimal, Field(ge=0, max_digits=10, decimal_places=2)]
 
 
+def _validar_imagen(valor: str | None) -> str | None:
+    if valor is None:
+        return None
+    limpio = valor.strip()
+    if not limpio:
+        return None
+    if ".." in limpio or "\\" in limpio:
+        raise ValueError("Ruta de imagen no permitida.")
+    if limpio.startswith(("http://", "https://", "media/")):
+        return limpio
+    raise ValueError("La imagen debe ser una ruta en 'media/' o una URL válida.")
+
+
 # ---------- Categoría ----------
 class CategoriaBase(BaseModel):
     nombre: str = Field(min_length=1, max_length=100)
 
+
 class CategoriaCreate(CategoriaBase):
     pass
 
+
 class CategoriaUpdate(BaseModel):
     nombre: str | None = Field(default=None, min_length=1, max_length=100)
+
 
 class CategoriaRead(CategoriaBase):
     model_config = ConfigDict(from_attributes=True)
@@ -38,11 +54,18 @@ class ProductoBase(BaseModel):
     precio_unidad: Dinero
     precio_consumidor: DineroCorto | None = None
     unidades_por_caja: int = Field(default=1, ge=1)
-    aplica_itbms: bool = True       # ITBMS 7 % solo si es gravado
+    aplica_itbms: bool = True  # ITBMS 7 % solo si es gravado
     estado_activo: bool = True
+
+    @field_validator("imagen")
+    @classmethod
+    def validar_imagen_base(cls, v: str | None) -> str | None:
+        return _validar_imagen(v)
+
 
 class ProductoCreate(ProductoBase):
     pass
+
 
 class ProductoUpdate(BaseModel):
     categoria_id: int | None = None
@@ -60,6 +83,12 @@ class ProductoUpdate(BaseModel):
     aplica_itbms: bool | None = None
     estado_activo: bool | None = None
 
+    @field_validator("imagen")
+    @classmethod
+    def validar_imagen_update(cls, v: str | None) -> str | None:
+        return _validar_imagen(v)
+
+
 class ProductoRead(ProductoBase):
     model_config = ConfigDict(from_attributes=True)
     id: int
@@ -76,8 +105,10 @@ class ClienteB2BBase(BaseModel):
     direccion: str | None = None
     activo: bool = True
 
+
 class ClienteB2BCreate(ClienteB2BBase):
     pass
+
 
 class ClienteB2BUpdate(BaseModel):
     nombre_empresa: str | None = Field(default=None, min_length=1, max_length=200)
@@ -86,6 +117,7 @@ class ClienteB2BUpdate(BaseModel):
     telefono: str | None = Field(default=None, max_length=60)
     direccion: str | None = None
     activo: bool | None = None
+
 
 class ClienteB2BRead(ClienteB2BBase):
     model_config = ConfigDict(from_attributes=True)

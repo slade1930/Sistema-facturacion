@@ -1,6 +1,9 @@
 
+from io import BytesIO
 from pathlib import Path
 from uuid import uuid4
+
+from PIL import Image
 
 
 # Carpeta backend/media
@@ -13,6 +16,13 @@ FORMATOS_PERMITIDOS = {
     "jpg": "image/jpeg",
     "jpeg": "image/jpeg",
     "webp": "image/webp",
+}
+
+FORMATOS_REALES = {
+    "png": "PNG",
+    "jpg": "JPEG",
+    "jpeg": "JPEG",
+    "webp": "WEBP",
 }
 
 
@@ -62,6 +72,20 @@ def guardar_logo(
 
     if not valido:
         raise ValueError("El contenido no corresponde a una imagen válida.")
+
+    # Gente, la firma no basta: un PNG cortado también la trae. Pillow verify()
+    # y una segunda lectura completa antes de escribir nada en disco.
+    try:
+        with Image.open(BytesIO(contenido)) as imagen:
+            formato_real = imagen.format
+            imagen.verify()
+        with Image.open(BytesIO(contenido)) as imagen:
+            imagen.load()
+    except Exception as exc:
+        raise ValueError("El contenido no es una imagen legible.") from exc
+
+    if formato_real != FORMATOS_REALES[extension]:
+        raise ValueError("El formato real no coincide con la extensión.")
 
     CARPETA_MEDIA.mkdir(parents=True, exist_ok=True)
 

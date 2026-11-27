@@ -9,9 +9,10 @@ from fastapi.testclient import TestClient
 from app.utils import storage
 
 # PNG de 1x1 generado en memoria, sin archivos en el repo.
+# Gente, antes tenía el CRC del IDAT mal y Pillow lo rechazaba: lo corrijo.
 PNG = base64.b64decode(
-    "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8DwHwAFAAH/"
-    "q842iQAAAABJRU5ErkJggg=="
+    "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8"
+    "z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg=="
 )
 
 CONFIGURACION = {

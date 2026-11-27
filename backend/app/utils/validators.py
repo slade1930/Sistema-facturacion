@@ -3,9 +3,8 @@
 Todas las funciones de validación lanzan ValueError con un mensaje claro.
 Los montos se manejan con Decimal, nunca con float.
 
-RUTA OFICIAL de validadores del proyecto. Antes esta implementación vivía
-en app/services/Validators.py; ese módulo quedó como re-export de
-compatibilidad. Importar siempre desde app.utils.validators.
+RUTA OFICIAL de validadores del proyecto. Importar siempre desde
+app.utils.validators.
 """
 
 import re
