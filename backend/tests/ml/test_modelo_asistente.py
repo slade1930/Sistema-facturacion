@@ -196,8 +196,12 @@ def test_frase_vacia_o_desconocida_no_predice(modelo_entrenado):
         assert modelo.predecir(frase, NOMBRE_PRUEBA, hoy=HOY) is None
 
 
-def test_archivo_corrupto_no_rompe(tmp_path, monkeypatch):
+@pytest.mark.parametrize(
+    "contenido",
+    [b"", b"roto", b"no es un pickle", b"PK\x03\x04basura"],
+)
+def test_archivo_corrupto_no_rompe(tmp_path, monkeypatch, contenido):
     ruta = tmp_path / "roto.pt"
-    ruta.write_bytes(b"no es un pickle")
+    ruta.write_bytes(contenido)
     monkeypatch.setattr(modelo, "cargar_modelo", lambda nombre: ruta)
     assert modelo.predecir("ventas por mes", "roto.pt", hoy=HOY) is None

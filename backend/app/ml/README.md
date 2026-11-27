@@ -8,7 +8,7 @@ Listo:
 
 - `datasets/generar_datos.py`: generador reproducible, semilla fija `20261126`, 30 meses de historia, estacionalidad y casos raros inyectados.
 - 5 CSV en `datasets/generados/`: **1000 facturas**, **2521 líneas de factura**, **400 pedidos**, **830 líneas de pedido** y **55 etiquetas de anomalías**.
-- 100 pruebas en `tests/ml/` (99 pasan y 1 se salta: 1 de entorno, 1 de estructura, 19 del generador y 79 del Módulo 4).
+- 107 pruebas en `tests/ml/` (106 pasan y 1 se salta: 1 de entorno, 1 de estructura, 19 del generador y 86 del Módulo 4).
 
 Ya implementado del Módulo 4: `asistente/catalogo.py`, `asistente/intenciones.py`, `asistente/frases_entrenamiento.py`, `modelos/asistente.py` y `entrenamiento/entrenar_asistente.py`. Por hacer: `reglas/`, `features/`, `evaluacion/`, `inferencia/` y los 4 routers de `api/v1/endpoints/ml/` siguen siendo stubs (docstrings) o no existen todavía. El único modelo entrenable hoy es la red local del asistente: se entrena con `python -m app.ml.entrenamiento.entrenar_asistente` y queda en `backend/ml_models/asistente.pt` (fuera de Git).
 

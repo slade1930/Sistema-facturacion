@@ -49,15 +49,9 @@ PALABRAS_CLIENTE_IGNORADAS = frozenset(
         "del",
         "por",
         "en",
-        "el",
-        "la",
-        "los",
-        "las",
         "un",
         "una",
         "con",
-        "a",
-        "y",
         "para",
         "durante",
         "este",
@@ -71,6 +65,7 @@ PALABRAS_CLIENTE_IGNORADAS = frozenset(
         "ayer",
     }
 )
+ARTICULOS_CLIENTE = frozenset({"el", "la", "los", "las", "a", "y"})
 
 REGLAS = (
     (("en revision", "en_revision"), "facturas_en_revision", 0.95),
@@ -169,7 +164,11 @@ def _extraer_cliente_texto(texto):
         if palabra.strip(".").casefold() in PALABRAS_CLIENTE_IGNORADAS:
             break
         palabras.append(palabra)
+    while palabras and palabras[-1].strip(".").isdigit():
+        palabras.pop()
     if not palabras:
+        return None
+    if all(palabra.strip(".").casefold() in ARTICULOS_CLIENTE for palabra in palabras):
         return None
     return " ".join(palabras).rstrip(".")
 

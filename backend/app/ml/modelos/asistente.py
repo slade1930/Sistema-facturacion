@@ -6,6 +6,7 @@ from __future__ import annotations
 
 import pickle
 import re
+import struct
 from datetime import date
 from pathlib import Path
 
@@ -140,6 +141,7 @@ def predecir(pregunta, nombre=NOMBRE_MODELO, hoy: date | None = None):
     except (
         OSError,
         EOFError,
+        struct.error,
         pickle.UnpicklingError,
         AttributeError,
         KeyError,

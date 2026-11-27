@@ -35,6 +35,9 @@ def test_clasificar_preguntas_predefinidas(pregunta, nombre, parametros):
         ("Ventas por cliente Acme S.A.", {"cliente": "acme s.a"}),
         ("Ventas por cliente Acme S.A. en 2026", {"anio": 2026, "cliente": "acme s.a"}),
         ("Ventas por cliente Acme Sur en 2026", {"anio": 2026, "cliente": "acme sur"}),
+        ("Ventas por cliente Compañía La Acme", {"cliente": "compania la acme"}),
+        ("Ventas del cliente El Alto", {"cliente": "el alto"}),
+        ("Ventas por cliente La Acme 2026", {"anio": 2026, "cliente": "la acme"}),
         ("Ventas por cliente en 2026", {"anio": 2026}),
     ],
 )

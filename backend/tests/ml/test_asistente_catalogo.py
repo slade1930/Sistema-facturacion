@@ -253,6 +253,29 @@ def test_razon_social_compuesta_no_queda_vacia(monkeypatch):
     assert resultado["total"] == "20.00"
 
 
+def test_cliente_con_acento_no_se_pierde(monkeypatch):
+    datos = (
+        _factura(1, date(2026, 10, 5), "30.00", EstadoFactura.EMITIDA, "Compañía La Acme"),
+        _factura(2, date(2026, 10, 6), "20.00", EstadoFactura.EMITIDA, "Acme Sur"),
+    )
+    vistos = []
+
+    def listar(db, **kw):
+        vistos.append(kw.get("cliente"))
+        if kw.get("cliente"):
+            busqueda = kw["cliente"].lower()
+            return [f for f in datos if busqueda in f.cliente_nombre.lower()]
+        return list(datos)
+
+    monkeypatch.setattr(
+        catalogo.FacturaRepository, "listar", staticmethod(listar)
+    )
+    resultado = catalogo.ventas_por_cliente(None, cliente="compania la acme")
+    assert all(valor is None for valor in vistos)
+    assert [fila["cliente"] for fila in resultado["datos"]] == ["Compañía La Acme"]
+    assert resultado["total"] == "30.00"
+
+
 def test_truncamiento_se_reporta(monkeypatch, repositorio):
     monkeypatch.setattr(catalogo, "LIMITE", 2)
     resultado = catalogo.ventas_por_mes(None)

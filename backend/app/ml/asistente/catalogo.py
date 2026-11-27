@@ -171,7 +171,7 @@ def _facturas(
             estado=estado,
             fecha_desde=fecha_desde,
             fecha_hasta=fecha_hasta,
-            cliente=cliente,
+            cliente=cliente if cliente_id is not None else None,
             skip=skip,
             limit=PAGINA,
         )
