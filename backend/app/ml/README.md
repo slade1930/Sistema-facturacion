@@ -165,4 +165,13 @@ La diferencia es chica con datos sintéticos: el autoencoder queda como sugerenc
 python -m app.ml.entrenamiento.entrenar_recomendaciones --sin-guardar
 ```
 
-El artefacto se guarda en `backend/ml_models/recomendaciones.pt` (fuera de Git). El endpoint `GET /ml/recomendaciones` se registra en el siguiente PR.
+El artefacto se guarda en `backend/ml_models/recomendaciones.pt` (fuera de Git).
+
+## 13. Endpoint de recomendaciones integrado en `desarrollo`
+
+- `GET /api/v1/ml/recomendaciones?producto_ids=1,2,3&n=5` está registrado y protegido con API key.
+- Lee facturas y pedidos con líneas desde los repositorios existentes; el historial se convierte a cestas con `cestas_desde_dataset()`.
+- Usa `recomendaciones.pt` si existe y cae a reglas de asociación / "más vendidos" si no hay artefacto o falla.
+- Nunca recomienda lo que ya está en `producto_ids` ni productos inactivos (`estado_activo = false`).
+- No hace `db.commit()`: es solo lectura. Sin base o sin historial responde `evaluado: false` con lista vacía.
+- Respuesta: `{"evaluado", "modelo", "resultado": {"producto_ids", "recomendaciones", "n"}}`.
