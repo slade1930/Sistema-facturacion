@@ -509,8 +509,8 @@ id,factura_id,orden,descripcion,codigo_barras,categoria,cantidad,precio_unitario
 508,195,1,Papel higienico x12,EJLIM-002,Snacks,3.15,120.00,10.00,0.00,True,1,caja,378.00,14,True
 509,196,1,Cloro desinfectante 1 L,EJLIM-004,Papeleria,4.49,54.00,4.50,10.00,True,12,caja,218.21,16,True
 510,197,1,Leche en polvo 400 g,EJALM-007,Hogar,28.70,8.75,8.75,0.00,True,24,unidad,251.13,36,True
-511,198,1,Té en bolsitas x25,EJBEB-005,Congelados,4.43,55.00,2.20,0.00,True,10,caja,243.65,5,True
-512,198,2,Jugo de piña 1 L,EJBEB-009,Snacks,4.51,54.00,4.50,10.00,True,12,caja,219.19,44,True
+511,198,1,Té en bolsitas x25,EJBEB-005,Congelados,4.43,55.00,2.20,40.00,True,10,caja,146.19,5,True
+512,198,2,Jugo de piña 1 L,EJBEB-009,Snacks,4.51,54.00,4.50,50.00,True,12,caja,121.77,44,True
 513,199,1,Agua mineral 500 ml,EJBEB-001,Bebidas,436.80,1.00,1.00,10.00,True,12,unidad,393.12,1,True
 514,199,2,Maní salado 200 g,EJSNA-003,Congelados,87.36,5.00,5.00,10.00,True,12,unidad,393.12,11,True
 515,200,1,Resma papel bond,EJPAP-003,Snacks,13.25,6.25,6.25,0.00,True,24,unidad,82.81,20,True
@@ -1002,10 +1002,10 @@ id,factura_id,orden,descripcion,codigo_barras,categoria,cantidad,precio_unitario
 1001,393,3,Almohada desechable,EJHOG-007,Bebidas,1.20,90.00,3.75,15.00,True,24,caja,91.80,43,True
 1002,394,1,Cloro desinfectante 1 L,EJLIM-004,Papeleria,54.25,4.50,4.50,0.00,True,12,unidad,244.13,16,True
 1003,394,2,Agua saborizada 500 ml,EJBEB-010,Limpieza,4.07,60.00,5.00,0.00,True,12,caja,244.20,45,True
-1004,395,1,Jugo de piña 1 L,EJBEB-009,Snacks,50.35,4.50,4.50,0.00,True,12,unidad,226.58,44,True
-1005,395,2,Fósforos x10,EJHOG-004,Limpieza,453.18,0.50,0.50,0.00,False,20,unidad,226.59,27,True
-1006,395,3,Yogurt natural 170 g,EJBEB-008,Snacks,34.86,6.50,6.50,5.00,True,12,unidad,215.26,8,True
-1007,395,4,Agua saborizada 500 ml,EJBEB-010,Limpieza,45.32,5.00,5.00,30.00,True,12,unidad,158.62,45,True
+1004,395,1,Jugo de piña 1 L,EJBEB-009,Snacks,50.35,4.50,4.50,40.00,True,12,unidad,135.95,44,True
+1005,395,2,Fósforos x10,EJHOG-004,Limpieza,453.18,0.50,0.50,40.00,False,20,unidad,135.95,27,True
+1006,395,3,Yogurt natural 170 g,EJBEB-008,Snacks,34.86,6.50,6.50,45.00,True,12,unidad,124.62,8,True
+1007,395,4,Agua saborizada 500 ml,EJBEB-010,Limpieza,45.32,5.00,5.00,50.00,True,12,unidad,113.30,45,True
 1008,396,1,Refresco naranja 1.5 L,EJBEB-002,Snacks,29.94,3.00,3.00,0.00,True,6,unidad,89.82,2,True
 1009,396,2,Puré de tomate 400 g,EJALM-009,Limpieza,51.32,1.75,1.75,15.00,True,24,unidad,76.34,39,True
 1010,396,3,Gaseosa cola 2 L,EJBEB-006,Hogar,16.33,5.50,5.50,5.00,True,6,unidad,85.32,6,True
@@ -1507,8 +1507,8 @@ id,factura_id,orden,descripcion,codigo_barras,categoria,cantidad,precio_unitario
 1506,590,1,Helado vainilla 1 L,EJCON-001,Congelados,128.25,7.00,7.00,10.00,True,4,unidad,807.98,23,True
 1507,591,1,Marcador permanente x3,EJPAP-004,Limpieza,310.23,1.00,1.00,15.00,True,24,unidad,263.70,21,True
 1508,591,2,Resma papel bond,EJPAP-003,Snacks,2.07,150.00,6.25,15.00,True,24,caja,263.93,20,True
-1509,592,1,Maní salado 200 g,EJSNA-003,Congelados,5.04,60.00,5.00,0.00,True,12,caja,302.40,11,True
-1510,592,2,Jabón de baño x4,EJLIM-003,Limpieza,151.20,2.00,2.00,5.00,True,24,unidad,287.28,15,True
+1509,592,1,Maní salado 200 g,EJSNA-003,Congelados,5.04,60.00,5.00,40.00,True,12,caja,181.44,11,True
+1510,592,2,Jabón de baño x4,EJLIM-003,Limpieza,151.20,2.00,2.00,45.00,True,24,unidad,166.32,15,True
 1511,593,1,Refresco uva 500 ml,EJBEB-011,Papeleria,1.00,48.00,2.00,10.00,True,6,caja,43.20,46,True
 1512,593,2,Detergente liquido 1 L,EJLIM-001,Bebidas,1.00,96.00,4.00,0.00,True,6,caja,96.00,13,True
 1513,593,3,Té en bolsitas x25,EJBEB-005,Congelados,20.83,2.20,2.20,0.00,True,10,unidad,45.83,5,True
@@ -2011,8 +2011,8 @@ id,factura_id,orden,descripcion,codigo_barras,categoria,cantidad,precio_unitario
 2010,788,2,Carpeta con gancho,EJPAP-005,Papeleria,92.61,1.50,1.50,0.00,True,24,unidad,138.92,22,True
 2011,788,3,Marcador permanente x3,EJPAP-004,Limpieza,5.79,24.00,1.00,10.00,True,24,caja,125.06,21,True
 2012,788,4,Cloro desinfectante 1 L,EJLIM-004,Papeleria,30.87,4.50,4.50,15.00,True,12,unidad,118.08,16,True
-2013,789,1,Resma papel bond,EJPAP-003,Snacks,53.41,6.25,6.25,0.00,True,24,unidad,333.81,20,True
-2014,789,2,Gaseosa cola 2 L,EJBEB-006,Hogar,60.69,5.50,5.50,0.00,True,6,unidad,333.80,6,True
+2013,789,1,Resma papel bond,EJPAP-003,Snacks,53.41,6.25,6.25,45.00,True,24,unidad,183.60,20,True
+2014,789,2,Gaseosa cola 2 L,EJBEB-006,Hogar,60.69,5.50,5.50,45.00,True,6,unidad,183.59,6,True
 2015,790,1,Café molido 250 g,EJBEB-004,Papeleria,3.19,90.00,3.75,5.00,True,6,caja,272.75,4,True
 2016,790,2,Papel higienico x12,EJLIM-002,Snacks,28.71,10.00,10.00,0.00,True,1,unidad,287.10,14,True
 2017,790,3,Aceite vegetal 1 L,EJALM-003,Snacks,3.99,72.00,3.00,10.00,True,6,caja,258.55,32,True
@@ -2485,10 +2485,10 @@ id,factura_id,orden,descripcion,codigo_barras,categoria,cantidad,precio_unitario
 2484,984,4,Leche entera 1 L,EJBEB-007,Bebidas,32.48,3.50,3.50,0.00,True,12,unidad,113.68,7,True
 2485,985,1,Esponja multiuso x6,EJLIM-005,Congelados,167.15,1.25,1.25,0.00,True,24,unidad,208.94,17,True
 2486,985,2,Insecticida aerosol,EJHOG-006,Congelados,2.18,96.00,4.00,10.00,True,6,caja,188.35,29,True
-2487,986,1,Yogurt natural 170 g,EJBEB-008,Snacks,1.55,78.00,6.50,5.00,True,12,caja,114.86,8,True
-2488,986,2,Papas fritas naturales,EJSNA-002,Papeleria,2.23,54.00,2.25,0.00,True,6,caja,120.42,10,True
-2489,986,3,Jugo de manzana 1 L,EJBEB-003,Limpieza,48.24,2.50,2.50,0.00,True,6,unidad,120.60,3,True
-2490,986,4,Puré de tomate 400 g,EJALM-009,Limpieza,2.87,42.00,1.75,10.00,True,24,caja,108.49,39,True
+2487,986,1,Yogurt natural 170 g,EJBEB-008,Snacks,1.55,78.00,6.50,45.00,True,12,caja,66.50,8,True
+2488,986,2,Papas fritas naturales,EJSNA-002,Papeleria,2.23,54.00,2.25,45.00,True,6,caja,66.23,10,True
+2489,986,3,Jugo de manzana 1 L,EJBEB-003,Limpieza,48.24,2.50,2.50,40.00,True,6,unidad,72.36,3,True
+2490,986,4,Puré de tomate 400 g,EJALM-009,Limpieza,2.87,42.00,1.75,50.00,True,24,caja,60.27,39,True
 2491,987,1,Papel higienico x12,EJLIM-002,Snacks,15.92,10.00,10.00,0.00,True,1,unidad,159.20,14,True
 2492,987,2,Frijoles 2 lb,EJALM-005,Papeleria,1.33,120.00,10.00,0.00,True,12,caja,159.60,34,True
 2493,988,1,Fósforos x10,EJHOG-004,Limpieza,8.60,12.00,0.50,10.00,False,20,caja,92.88,27,True

@@ -293,9 +293,10 @@ def _nueva_linea(rng, producto, orden, objetivo, caso):
     if caso == "total_muy_alto" and orden == 1:
         cantidad = Decimal("250")
 
-    descuento_pct = d(
-        rng.choice([0, 0, 0, 5, 10, 30 if caso == "descuento_alto" else 15])
-    )
+    # El caso raro tiene que notarse de verdad: siempre por encima del 30 %.
+    # Un solo choice por línea mantiene la semilla y el resto del dataset igual.
+    opciones = (40, 45, 50) if caso == "descuento_alto" else (0, 0, 0, 5, 10, 15)
+    descuento_pct = d(rng.choice(opciones))
     gravada = producto["aplica_itbms"] and caso != "sin_itbms"
 
     return {
@@ -550,7 +551,7 @@ def _fila(campo_valores, campos):
 
 def _escribir_csv(ruta, campos, filas):
     with open(ruta, "w", newline="", encoding="utf-8") as fh:
-        writer = csv.DictWriter(fh, fieldnames=campos)
+        writer = csv.DictWriter(fh, fieldnames=campos, lineterminator="\n")
         writer.writeheader()
         for fila in filas:
             writer.writerow(_fila(fila, campos))
