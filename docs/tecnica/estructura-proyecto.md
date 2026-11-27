@@ -2,7 +2,7 @@
 
 El repositorio está dividido en las siguientes carpetas principales:
 * `backend/`: Contiene la API, lógica y base de datos.
-* `ui/`: Contiene las pantallas de NiceGUI.
+* `ui/`: carpeta reservada para NiceGUI; hoy está vacía (sin pantallas implementadas).
 * `docs/`: Documentación del proyecto.
 
 ## Ramas y Equipos

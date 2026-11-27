@@ -20,10 +20,14 @@ Al ejecutar las pruebas, se encontraron bloqueos de archivos `.pyd` durante la i
 
 Se reportó dos alternativas para continuar:
 
-- Configurar en la terminal
+- Configurar en la terminal (sólo si aparecen bloqueos `.pyd`):
 
 ```bash
+# Windows PowerShell:
 $env:SQLALCHEMY_NO_CEXTENSIONS="1"
+
+# Linux/macOS:
+export SQLALCHEMY_NO_CEXTENSIONS=1
 ```
 
 - Ejecutar las pruebas dentro del contenedor Docker

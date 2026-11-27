@@ -1,0 +1,3 @@
+API_KEY_HEADER = "X-API-Key"
+API_KEY_ENV = "API_KEY"
+MEDIA_TYPE_PDF = "application/pdf"
