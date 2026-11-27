@@ -16,6 +16,7 @@ from app.core.errors import registrar_manejadores
 from app.db.session import get_db
 from app.ml.inferencia import cargador
 from app.ml.modelos import pronostico as modelos
+from app.ml.modelos import pronostico_lstm as modelos_lstm
 
 
 def _app(tmp_path, monkeypatch):
@@ -100,3 +101,28 @@ def test_mes_fuera_de_rango_da_422(tmp_path, monkeypatch):
     cuerpo = r.json()
     assert cuerpo["code"] == "VALIDATION_ERROR"
     assert isinstance(cuerpo["detail"], str)
+
+
+def test_endpoint_lstm_con_meses_distinto_de_seis(tmp_path, monkeypatch):
+    pytest.importorskip("torch")
+    client = _app(tmp_path, monkeypatch)
+    serie = [100 + 10 * (i % 3) + i * 2 for i in range(30)]
+    modelo = modelos_lstm.entrenar_lstm(
+        serie, horizonte=6, epocas=3, semilla=1
+    )
+    modelos_lstm.guardar_modelo(modelo, tmp_path / "ml_models")
+    periodos = [f"2024-{i:02d}" for i in range(1, 13)]
+    monkeypatch.setattr(
+        ep, "_serie_desde_db", lambda db, pid=None: (periodos, serie[:12])
+    )
+
+    r = client.get("/api/v1/ml/pronostico?meses=3")
+    assert r.status_code == 200
+    cuerpo = r.json()
+    assert cuerpo["evaluado"] is True
+    assert cuerpo["modelo"] == "pronostico_lstm.pt"
+    assert cuerpo["resultado"]["horizonte"] == 3
+    assert len(cuerpo["resultado"]["valores"]) == 3
+
+    r = client.get("/api/v1/ml/pronostico?meses=12")
+    assert r.json()["resultado"]["motivo"] == "sin predicción"
