@@ -8,9 +8,9 @@ Listo:
 
 - `datasets/generar_datos.py`: generador reproducible, semilla fija `20261126`, 30 meses de historia, estacionalidad y casos raros inyectados.
 - 5 CSV en `datasets/generados/`: **1000 facturas**, **2521 líneas de factura**, **400 pedidos**, **830 líneas de pedido** y **55 etiquetas de anomalías**.
-- 147 pruebas en `tests/ml/` (146 pasan y 1 se salta: 1 de entorno, 1 de estructura, 19 del generador, 100 del Módulo 4 y 26 de las reglas de anomalías).
+- 171 pruebas en `tests/ml/` (170 pasan y 1 se salta: 1 de entorno, 1 de estructura, 19 del generador, 100 del Módulo 4, 26 de las reglas de anomalías y 24 del Isolation Forest).
 
-Ya implementado del Módulo 4: `asistente/catalogo.py`, `asistente/intenciones.py`, `asistente/frases_entrenamiento.py`, `modelos/asistente.py`, `entrenamiento/entrenar_asistente.py`, `evaluacion/asistente.py` y `api/v1/endpoints/ml/asistente.py`. Del Módulo 1: `features/anomalias.py` y `reglas/anomalias.py`. Por hacer: `inferencia/`, los otros routers de `api/v1/endpoints/ml/` (sigue stubs o no existen) y los otros módulos de `evaluacion/`, modelos y entrenamiento. El único modelo entrenable hoy es la red local del asistente: se entrena con `python -m app.ml.entrenamiento.entrenar_asistente` y queda en `backend/ml_models/asistente.pt` (fuera de Git).
+Ya implementado del Módulo 4: `asistente/catalogo.py`, `asistente/intenciones.py`, `asistente/frases_entrenamiento.py`, `modelos/asistente.py`, `entrenamiento/entrenar_asistente.py`, `evaluacion/asistente.py` y `api/v1/endpoints/ml/asistente.py`. Del Módulo 1: `features/anomalias.py`, `reglas/anomalias.py`, modelo Isolation Forest, entrenamiento y evaluación con métricas. Por hacer: `inferencia/`, los otros routers de `api/v1/endpoints/ml/` (siguen siendo stubs o no existen) y los otros modelos/módulos de evaluación. Hay dos modelos entrenables, ambos fuera de Git: la red local del asistente (`python -m app.ml.entrenamiento.entrenar_asistente` → `backend/ml_models/asistente.pt`) y el Isolation Forest de anomalías (`python -m app.ml.entrenamiento.entrenar_anomalias` → `backend/ml_models/anomalias.pkl`).
 
 Cómo generar y validar (dentro del contenedor):
 
@@ -101,6 +101,44 @@ Las reglas trabajan con datos en memoria, no consultan directamente la base de d
 - `backend/app/ml/features/anomalias.py`
 - `backend/app/ml/reglas/anomalias.py`
 - `backend/tests/ml/test_reglas_anomalias.py`
+
+### 6.2. Flinn — Isolation Forest, evaluación y umbral
+
+**Estado:** implementado y probado. Acá queda respondida la comparación reglas vs modelo que en 6.1 figuraba como pendiente.
+
+**Modelo:** Isolation Forest en Python puro (`random` + `pickle`), sin librerías nuevas ni descargas. 100 árboles, semilla fija `20261126` y siete rasgos: total, descuento máximo, anulada, mes, cliente sin RUC, serie repetida y total sin ITBMS. Así se ven los seis tipos de anomalía etiquetados (montos altos, descuentos, anulaciones, series duplicadas, sin ITBMS y sin RUC). Se entrena **sin etiquetas** con las 1000 facturas de los CSV y se guarda en `backend/ml_models/anomalias.pkl` (fuera de Git). `predecir()` devuelve `None` si no hay archivo o si está corrupto, así que la app sigue andando. El puntaje va de 0 a 1 (más alto = más raro) y sólo sugiere revisión: **no cambia el `estado`**.
+
+Los rasgos nuevos viven en `modelos/anomalias.py`, no en `features/anomalias.py` (archivo de Antony, intacto). `desde_factura(factura)` arma el vector desde una `Factura` de la app y `marcar_series_repetidas(lista)` marca la segunda y siguientes facturas con la misma serie. Moisés puede usar ambos desde su endpoint sin tocar los modelos de datos.
+
+**Umbral de `en_revision`:** `0.5377`, guardado en `modelo.UMBRAL_REVISION` para que `predecir()` use el mismo valor. Se eligió por mejor F1 con **33 etiquetas de calibración** y se mide sobre **22 etiquetas de validación que el ajuste nunca vio** (separación por id, sin azar). Las facturas usadas para calibrar se excluyen de las métricas, así que no cuentan como falsos positivos. Las etiquetas nunca entrenan el modelo. Estas cifras usan los CSV corregidos del PR #51 (los cinco casos `descuento_alto` ahora sí tienen descuento real); conviene mergear ese PR antes o junto con este.
+
+**Métricas** (1000 facturas, 22 etiquetas de validación; reglas con umbral de puntaje 20):
+
+| Evaluación | TP | FP | FN | Precisión | Recall | F1 |
+|---|---:|---:|---:|---:|---:|---:|
+| Reglas de Antony | 9 | 43 | 13 | 0,1731 | 0,4091 | 0,2432 |
+| Isolation Forest | 21 | 2 | 1 | 0,9130 | 0,9545 | 0,9333 |
+
+El modelo baja los falsos positivos de 43 a 2 y sube el F1 de 0,2432 a 0,9333, todo en datos que no vio al elegir el umbral.
+
+**Límite conocido:** el holdout son 22 etiquetas, así que las métricas pueden moverse un poco si cambia la semilla del generador; la calibración con 33 etiquetas también es chica. Queda un falso negativo (`total_muy_alto` con monto parecido a uno normal). Los seis tipos tienen señal y el modelo no cambia el `estado`. El bug de `descuento_alto` sin descuento real se arregló en el PR #51, que regeneró los CSV con la misma semilla; este PR no tocó `generar_datos.py`.
+
+**Cómo correrlo** (dentro del contenedor):
+
+```
+python -m app.ml.entrenamiento.entrenar_anomalias
+python -m app.ml.evaluacion.anomalias
+```
+
+**Pruebas:** 24 en `test_modelo_anomalias.py` y `test_evaluacion_anomalias.py` (determinismo por semilla, señales raras, series repetidas, guardar/cargar, `.pkl` corrupto, métricas, separación calibración/validación, sin modelo y sin depender de los CSV versionados). Suite completa en esta rama: 449 pruebas aprobadas y 1 omitida (450 y 1 después de mergear el PR #51).
+
+**Archivos implementados:**
+
+- `backend/app/ml/modelos/anomalias.py`
+- `backend/app/ml/entrenamiento/entrenar_anomalias.py`
+- `backend/app/ml/evaluacion/anomalias.py`
+- `backend/tests/ml/test_modelo_anomalias.py`
+- `backend/tests/ml/test_evaluacion_anomalias.py`
 
 ## 7. Ramas de trabajo
 
