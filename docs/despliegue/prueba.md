@@ -4,6 +4,8 @@ Explicación de cómo ejecutar las pruebas automatizadas del backend del sistema
 
 El proyecto utiliza **pytest** para comprobar el funcionamiento de los modelos, servicios y componentes del backend.
 
+Las pruebas se encuentran en el directorio backend/tests/ y están organizadas en carpetas según el componente que verifican.
+
 ¿Qué es pytest?
 Pytest es una herramienta de Python utilizada para ejecutar pruebas automatizadas del backend. Permite comprobar que los diferentes componentes del sistema funcionan correctamente y detectar posibles errores durante el desarrollo.
 
@@ -13,10 +15,8 @@ En este proyecto se utiliza para ejecutar las pruebas ubicadas en backend/tests/
 
 Para ejecutar las pruebas se necesitan:
 
-- Python 3.12.
 - Docker y Docker Compose.
-- Las dependencias especificadas en `backend/requirements.txt`.
-- pytest 9.2.0.
+- Las dependencias especificadas en backend/requirements.txt, entre ellas pytest 9.2.0.
 
 Entre las dependencias principales se encuentran SQLAlchemy, Alembic, psycopg y pytest.
 
@@ -27,19 +27,25 @@ Las pruebas se encuentran dentro de `backend/tests/`, organizadas de la siguient
 - backend/tests/models/ 
 - backend/tests/services/
 - backend/tests/conftest.py
-
-
+- backend/tests/api/
+- 
 ### Pruebas de modelos
 
 La carpeta `models/` contiene pruebas relacionadas con los modelos y el acceso a la base de datos.
 
-Incluye pruebas de conexión, integridad y relaciones entre los modelos.
+Se comprueba la existencia de las 10 tablas esperadas, la integridad y las restricciones de los modelos, las relaciones entre facturas, productos y pedidos, así como la configuración de conexión a PostgreSQL.
 
 ### Pruebas de servicios
 
 La carpeta `services/` contiene pruebas relacionadas con la lógica y los servicios del sistema de facturación.
 
-Incluye pruebas de totales, series, generación de PDF, validaciones, conversión de números a letras y verificación.
+Se evalúan los cálculos y totales de facturación, la numeración de facturas, la conversión de números a letras, la generación de documentos PDF, el formateo y la validación de datos, las operaciones de catálogo y pedidos, y el código de verificación.
+
+### Pruebas de API
+
+La carpeta `api/` contiene pruebas relacionadas con los endpoints y la seguridad de la API del sistema de facturación.
+
+Se verifican la autenticación mediante API Key, el estado de la API, las operaciones de creación, consulta, anulación y duplicación de facturas, el historial, el cálculo del carrito, la configuración del logotipo y la gestión y facturación de pedidos B2B.
 
 ### Archivo conftest.py
 
@@ -49,11 +55,11 @@ Agrega la carpeta `backend/` a la ruta de búsqueda de Python para que las prueb
 
 ## Cómo ejecutar las pruebas con Docker
 
-El proyecto permite ejecutar las pruebas dentro del contenedor del backend.
+Para ejecutar las pruebas, primero es necesario tener Docker Desktop iniciado y ubicarse en la raíz del proyecto, donde se encuentra el archivo docker-compose.yml.
 
 ### Paso 1. Iniciar los contenedores
 
-Desde la carpeta raíz del proyecto, ejecutar:
+Ejecutar:
 
 ```bash
 docker compose up -d --build
@@ -65,7 +71,7 @@ Este comando construye las imágenes necesarias e inicia los servicios definidos
 
 Ejecutar el siguiente comando:
 
-```powershell
+```bash
 docker compose exec backend pytest -v
 ```
 
@@ -77,33 +83,17 @@ La opción `-v` muestra los nombres de las pruebas y sus resultados.
 
 Al finalizar, pytest muestra un resumen de las pruebas ejecutadas.
 
-Los resultados más comunes son:
+| Estado | Significado |
+|---|---|
+| `PASSED` | La prueba se ejecutó correctamente. |
+| `FAILED` | La prueba se ejecutó, pero no cumplió una condición esperada. |
+| `SKIPPED` | La prueba fue omitida por una condición definida en el código. |
 
-- **PASSED:** la prueba se ejecutó correctamente.
-- **FAILED:** la prueba encontró un error.
-- **SKIPPED:** la prueba fue omitida por una condición establecida en el código.
-
-## Variable DATABASE_URL y pruebas omitidas
+## Pruebas que requieren DATABASE_URL
 
 Algunas pruebas necesitan conectarse a PostgreSQL para comprobar el funcionamiento de la base de datos.
 
-Para ello utilizan la variable de entorno `DATABASE_URL`, que contiene la dirección de conexión.
-
-Dentro de Docker Compose, el backend recibe automáticamente una dirección de conexión que utiliza el servicio `db` como host:
-
-```text
-postgresql+psycopg://factura:factura@db:5432/factura
-```
-
-Cuando se ejecuta el backend fuera de Docker, se utiliza `localhost` como host, según la configuración de `backend/.env.example`.
-
-### ¿Por qué algunas pruebas se omiten?
-
-No todas las pruebas necesitan una conexión real con PostgreSQL.
-
-Por ejemplo, en `backend/tests/models/test_conexion.py` existe una prueba llamada `test_conexion_postgres`, que realiza una consulta `SELECT 1` para comprobar la conexión.
-
-Esta prueba utiliza la siguiente condición:
+Por ejemplo, en `backend/tests/models/test_conexion.py` se encuentra la siguiente condición:
 
 ```python
 @pytest.mark.integration
@@ -111,14 +101,29 @@ Esta prueba utiliza la siguiente condición:
     not os.getenv("DATABASE_URL"),
     reason="Sin DATABASE_URL"
 )
+def test_conexion_postgres():
+    with get_engine().connect() as conexion:
+        assert conexion.execute(text("SELECT 1")).scalar_one() == 1
 ```
 
-Esto significa que:
+La condición `skipif` indica que pytest debe omitir esta prueba cuando la variable de entorno `DATABASE_URL` no está definida.
 
-- Si `DATABASE_URL` está configurada, la prueba intenta conectarse a PostgreSQL.
-- Si `DATABASE_URL` no está configurada, pytest omite automáticamente esa prueba.
-- Las pruebas que no necesitan PostgreSQL pueden ejecutarse sin esa conexión.
+Cuando esto ocurre, la prueba aparece como `SKIPPED`, con el motivo `Sin DATABASE_URL`. Esto no significa que haya fallado, sino que no se ejecutó porque no se cumplió el requisito de conexión.
 
-La omisión no significa necesariamente que exista un error en el sistema; significa que no se cumplen las condiciones necesarias para ejecutar esa prueba.
+### DATABASE_URL dentro de Docker
 
-**Importante:** al ejecutar las pruebas fuera de Docker, definir `DATABASE_URL` en un archivo `.env` no garantiza que esté disponible para `os.getenv()`. La variable debe estar exportada en el entorno del proceso que ejecuta pytest.
+En la configuración de Docker Compose, el backend recibe la variable `DATABASE_URL` para conectarse al servicio de PostgreSQL.
+
+La dirección utiliza el nombre del servicio `db` como host:
+
+```env
+DATABASE_URL=postgresql+psycopg://factura:factura@db:5432/factura
+```
+
+Si se ejecuta el backend directamente fuera de Docker, la dirección de conexión debe utilizar `localhost` cuando PostgreSQL está publicado en el equipo local:
+
+```env
+DATABASE_URL=postgresql+psycopg://factura:factura@localhost:5432/factura
+```
+
+Por tanto, las pruebas que requieren PostgreSQL necesitan que `DATABASE_URL` esté definida en el entorno del proceso que ejecuta pytest y que la base de datos esté disponible.
