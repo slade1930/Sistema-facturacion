@@ -6,6 +6,7 @@ Seis consultas predefinidas, nunca SQL generado.
 from __future__ import annotations
 
 import calendar
+import unicodedata
 from collections import defaultdict
 from datetime import date
 from decimal import ROUND_HALF_UP, Decimal
@@ -24,6 +25,25 @@ NOTA_PRODUCTOS = (
 
 ESTADOS_FACTURABLES = frozenset(
     estado.value for estado in (EstadoFactura.EMITIDA, EstadoFactura.EN_REVISION)
+)
+
+SUFIJOS_LEGALES = frozenset(
+    {
+        "s",
+        "a",
+        "sa",
+        "sas",
+        "sr",
+        "srl",
+        "l",
+        "ltda",
+        "sl",
+        "sc",
+        "inc",
+        "cia",
+        "compania",
+        "co",
+    }
 )
 
 INTENCIONES = (
@@ -57,6 +77,35 @@ def _es_estado(factura, estado: EstadoFactura) -> bool:
 
 def _es_facturable(factura) -> bool:
     return _valor_estado(getattr(factura, "estado", None)) in ESTADOS_FACTURABLES
+
+
+def normalizar_cliente(nombre) -> str:
+    descompuesto = unicodedata.normalize("NFD", str(nombre or "").casefold())
+    sin_acentos = "".join(
+        caracter
+        for caracter in descompuesto
+        if unicodedata.category(caracter) != "Mn"
+    )
+    solo_palabras = "".join(
+        caracter if caracter.isalnum() or caracter.isspace() else " "
+        for caracter in sin_acentos
+    )
+    return " ".join(solo_palabras.split())
+
+
+def clientes_coinciden(consulta, nombre) -> bool:
+    buscar = normalizar_cliente(consulta)
+    guardado = normalizar_cliente(nombre)
+    if not buscar or not guardado:
+        return False
+    if buscar == guardado:
+        return True
+    if not guardado.startswith(buscar):
+        return False
+    resto = guardado[len(buscar) :].strip()
+    return bool(resto) and all(
+        palabra in SUFIJOS_LEGALES for palabra in resto.split()
+    )
 
 
 def _dinero(valor) -> str:
@@ -122,7 +171,7 @@ def _facturas(
             estado=estado,
             fecha_desde=fecha_desde,
             fecha_hasta=fecha_hasta,
-            cliente=cliente,
+            cliente=cliente if cliente_id is not None else None,
             skip=skip,
             limit=PAGINA,
         )
@@ -133,10 +182,9 @@ def _facturas(
             if solo_facturables and not _es_facturable(factura):
                 continue
             if cliente is not None and cliente_id is None:
-                nombre = (
-                    getattr(factura, "cliente_nombre", "") or ""
-                ).strip().casefold()
-                if nombre != cliente.strip().casefold():
+                if not clientes_coinciden(
+                    cliente, getattr(factura, "cliente_nombre", "")
+                ):
                     continue
             resultados.append(factura)
             if len(resultados) > LIMITE:
