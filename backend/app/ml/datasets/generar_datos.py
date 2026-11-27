@@ -637,6 +637,21 @@ def leer_dataset_csv(directorio=SALIDA):
     return facturas, etiquetas_raw
 
 
+def cargar_dataset_ml(directorio=SALIDA):
+    """Dataset plano para ML: facturas con líneas + líneas sueltas + tags."""
+    facturas, etiquetas = leer_dataset_csv(directorio)
+    lineas = [
+        dict(linea)
+        for factura in facturas
+        for linea in factura.get("lineas", [])
+    ]
+    return {
+        "facturas": facturas,
+        "lineas_factura": lineas,
+        "etiquetas_anomalias": etiquetas,
+    }
+
+
 def validar_dataset(facturas, etiquetas=None, meses_min=24, meses_max=36,
                     hoy=None):
     """Valida cuadre de totales, series únicas y rango de fechas.

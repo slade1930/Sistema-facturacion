@@ -11,8 +11,6 @@ import pytest
 
 from app.ml.datasets import generar_datos as gd
 
-SALIDA_REAL = gd.SALIDA  # backend/app/ml/datasets/generados (ignorada)
-
 
 def _dataset_chico(n=120, semilla=gd.SEMILLA):
     return gd.construir_dataset(
@@ -120,17 +118,19 @@ def test_escritura_csv_en_carpeta_generados(tmp_path):
     assert "backend/app/ml/datasets/generados/" in gitignore
 
 
-def test_archivos_reales_en_generados():
+def test_archivos_reales_en_generados(tmp_path):
+    # Nunca escribir en SALIDA_REAL: los CSV versionados son solo lectura
+    # para las pruebas (política del README de app/ml).
     dataset = gd.construir_dataset(
         n_facturas=gd.CANTIDAD_FACTURAS, n_pedidos=50, semilla=gd.SEMILLA
     )
-    gd.escribir_csvs(dataset, SALIDA_REAL)
+    gd.escribir_csvs(dataset, tmp_path)
     for nombre in (
         "facturas_ejemplo.csv",
         "lineas_factura_ejemplo.csv",
         "etiquetas_anomalias.csv",
     ):
-        assert (SALIDA_REAL / nombre).is_file(), nombre
+        assert (tmp_path / nombre).is_file(), nombre
 
 
 def test_etiquetas_anomalias_con_casos_raros():
