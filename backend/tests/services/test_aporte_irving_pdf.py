@@ -94,6 +94,19 @@ def _escribir_png(ruta, ancho=600, alto=300):
     return str(ruta)
 
 
+@pytest.fixture(autouse=True)
+def configuracion_de_prueba(monkeypatch):
+    """Gente, URL falsa para el QR; no toca el .env real."""
+    import app.services.pdf as modulo_pdf
+    from types import SimpleNamespace
+
+    monkeypatch.setattr(
+        modulo_pdf,
+        "settings",
+        SimpleNamespace(FACTURA_VERIFICACION_BASE_URL="https://verificacion.ejemplo.test"),
+    )
+
+
 # ---------------------------------------------------------------------------
 # PDF sin logo
 # ---------------------------------------------------------------------------
