@@ -71,5 +71,6 @@ def downgrade():
     op.drop_column("factura", "motivo_anomalia")
     op.drop_column("factura", "puntaje_anomalia")
 
-    # El valor 'en_revision' se deja en el tipo ENUM: quitarlo obligaria a
-    # recrear el tipo. Un nuevo upgrade es idempotente (IF NOT EXISTS).
+    # Gente, el valor 'en_revision' del ENUM NO se revierte: se queda en la
+    # base y es esperado. Quitarlo obligaría a recrear el tipo, así que no lo
+    # tocamos. Un nuevo upgrade es idempotente (IF NOT EXISTS).
