@@ -11,12 +11,13 @@ git clone https://github.com/slade1930/Sistema-facturacion.git
 cd Sistema-facturacion
 git checkout desarrollo
 git pull
+cp .env.example .env
 docker compose up --build
 ```
 
 La primera vez `--build` arma la imagen. En las siguientes podés usar `docker compose up -d` para dejarlo corriendo en segundo plano.
 
-Si querés cambiar los usuarios/claves de PostgreSQL, copiá `.env.example` a `.env` y editá ese archivo. El `.env` real nunca se sube a git.
+Antes de levantar, copiá `.env.example` a `.env` y definí `API_KEY` y `FACTURA_HMAC_KEY` con tus propios valores. Ambas son obligatorias: si falta alguna, la app no arranca. Si además querés cambiar los usuarios/claves de PostgreSQL, editá los otros valores en ese mismo `.env`. El `.env` real nunca se sube a git.
 
 ## Probar que levantó
 
