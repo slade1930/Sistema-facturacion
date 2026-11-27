@@ -60,11 +60,18 @@ def pagina_pedidos_pendientes(limite: int = 100) -> None:
                     notas = _valor(pedido, "notas")
                     if notas:
                         ui.label(f"Notas: {notas}").classes("text-caption")
-                    ui.button(
-                        "Facturar",
-                        on_click=lambda p=pedido: ui.navigate.to(
-                            f"/pedidos/convertir-a-factura?id={p['id']}"
-                        ),
-                    ).classes("mt-2")
+                    with ui.row().classes("gap-2 mt-2"):
+                        ui.button(
+                            "Ver detalle",
+                            on_click=lambda p=pedido: ui.navigate.to(
+                                f"/pedidos/detalle?id={p['id']}"
+                            ),
+                        )
+                        ui.button(
+                            "Facturar",
+                            on_click=lambda p=pedido: ui.navigate.to(
+                                f"/pedidos/convertir-a-factura?id={p['id']}"
+                            ),
+                        )
 
     cargar()
