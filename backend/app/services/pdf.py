@@ -14,6 +14,7 @@ ejemplo, que falte FACTURA_HMAC_KEY) se deja subir: nada de dejarlo en "".
 Acepta Factura ORM, dict o cualquier objeto con los atributos del esquema.
 """
 
+import logging
 from datetime import date, datetime
 from decimal import Decimal
 from html import escape
@@ -29,6 +30,7 @@ from reportlab.lib.units import mm
 from reportlab.graphics.barcode.qr import QrCodeWidget
 from reportlab.graphics.shapes import Drawing
 from reportlab.platypus import Paragraph, SimpleDocTemplate, Spacer, Table, TableStyle
+from PIL import Image as ImagenPIL
 
 from app.core.config import settings
 from app.services.numero_a_letras import monto_a_letras_factura
@@ -37,6 +39,8 @@ from app.services.verificacion import (
     generar_codigo_verificacion as _generar_codigo_verificacion,
 )
 from app.utils.formatters import formato_fecha, formato_moneda
+
+logger = logging.getLogger(__name__)
 
 _CAMPOS_TOTALES = (
     "subtotal",
@@ -294,6 +298,18 @@ th, td {{ border: 1px solid #999; padding: 4px 6px; }}
 </body></html>"""
 
 
+def _logo_legible(ruta: Path) -> bool:
+    """Gente, confirmamos que Pillow puede decodificar el archivo completo."""
+    try:
+        with ImagenPIL.open(ruta) as imagen:
+            imagen.verify()
+        with ImagenPIL.open(ruta) as imagen:
+            imagen.load()
+        return True
+    except Exception:
+        return False
+
+
 def _cargar_logo(ruta_logo: Any) -> Optional[Any]:
     """Devuelve el Flowable Image del logo o None si no se puede usar.
 
@@ -303,10 +319,12 @@ def _cargar_logo(ruta_logo: Any) -> Optional[Any]:
     """
     if not ruta_logo:
         return None
+    nombre = Path(str(ruta_logo)).name or "logo"
     try:
         from reportlab.lib.utils import ImageReader
         from reportlab.platypus import Image as Imagen
     except ImportError:
+        logger.warning("Sin soporte de imágenes (%s); PDF sin logo.", nombre)
         return None
     try:
         ruta = Path(str(ruta_logo)).expanduser()
@@ -315,15 +333,21 @@ def _cargar_logo(ruta_logo: Any) -> Optional[Any]:
             candidatos = [ruta, Path.cwd() / ruta, base_backend / ruta]
             ruta = next((c for c in candidatos if c.is_file()), candidatos[0])
         if not ruta.is_file():
+            logger.warning("Logo no encontrado (%s); PDF sin logo.", nombre)
+            return None
+        if not _logo_legible(ruta):
+            logger.warning("Logo ilegible (%s); PDF sin logo.", nombre)
             return None
         lector = ImageReader(str(ruta))
         ancho_px, alto_px = lector.getSize()
         if ancho_px <= 0 or alto_px <= 0:
+            logger.warning("Logo sin dimensiones (%s); PDF sin logo.", nombre)
             return None
         max_ancho, max_alto = 30 * mm, 18 * mm
         escala = min(max_ancho / ancho_px, max_alto / alto_px, 1.0)
         return Imagen(str(ruta), width=ancho_px * escala, height=alto_px * escala)
     except Exception:
+        logger.warning("No se pudo cargar el logo (%s); PDF sin logo.", nombre)
         return None
 
 
@@ -387,16 +411,20 @@ def generar_pdf(datos: dict[str, Any]) -> bytes:
     if not isinstance(datos, Mapping) or "empresa" not in datos:
         datos = construir_datos_comprobante(datos)
 
-    buffer = BytesIO()
-    documento = SimpleDocTemplate(
-        buffer,
-        pagesize=letter,
-        leftMargin=18 * mm,
-        rightMargin=18 * mm,
-        topMargin=16 * mm,
-        bottomMargin=16 * mm,
-        title=f"Factura {datos['numero_serie']}",
-    )
+    def crear_documento():
+        buf = BytesIO()
+        doc = SimpleDocTemplate(
+            buf,
+            pagesize=letter,
+            leftMargin=18 * mm,
+            rightMargin=18 * mm,
+            topMargin=16 * mm,
+            bottomMargin=16 * mm,
+            title=f"Factura {datos['numero_serie']}",
+        )
+        return buf, doc
+
+    buffer, documento = crear_documento()
     estilos = getSampleStyleSheet()
     normal = estilos["Normal"]
     normal.fontSize = 9
@@ -423,6 +451,7 @@ def generar_pdf(datos: dict[str, Any]) -> bytes:
         encabezado_empresa.append(texto(f"{empresa['correo']} {empresa['telefono']}".strip()))
 
     logo = _cargar_logo(empresa.get("logo"))
+    indice_logo = None
     if logo is not None:
         ancho_disponible = letter[0] - (18 + 18) * mm
         tabla_encabezado = Table(
@@ -437,6 +466,7 @@ def generar_pdf(datos: dict[str, Any]) -> bytes:
             ("BOTTOMPADDING", (0, 0), (-1, -1), 0),
         ]))
         historia.append(tabla_encabezado)
+        indice_logo = len(historia) - 1
     else:
         historia += encabezado_empresa
 
@@ -515,5 +545,18 @@ def generar_pdf(datos: dict[str, Any]) -> bytes:
     if datos["notas"]:
         historia += [Spacer(1, 2 * mm), texto(f"Notas: {datos['notas']}")]
 
-    documento.build(historia)
+    try:
+        documento.build(historia)
+    except Exception:
+        if indice_logo is None:
+            raise
+        # Gente, si el logo se cuelga al dibujarse, reintentamos sin él.
+        logger.warning(
+            "No se pudo dibujar el logo (%s); PDF sin logo.",
+            Path(str(empresa.get("logo") or "logo")).name or "logo",
+        )
+        historia[indice_logo : indice_logo + 1] = encabezado_empresa
+        buffer, documento = crear_documento()
+        documento.build(historia)
+
     return buffer.getvalue()
