@@ -6,6 +6,7 @@ ENLACES = (
     ("Historial", "/facturacion/historial"),
     ("Catálogo", "/catalogo"),
     ("Pedidos", "/pedidos/por-facturar"),
+    ("Configuración", "/configuracion"),
     ("Verificar", "/verificar"),
 )
 
