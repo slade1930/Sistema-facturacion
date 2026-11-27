@@ -6,7 +6,6 @@ from sqlalchemy.orm import Session
 
 from app.models.facturacion import EstadoFactura, Factura, LineaFactura
 from app.services.serie import siguiente_numero_factura
-from app.services.totales import aplicar_totales
 from app.services.verificacion import generar_codigo_verificacion
 
 
@@ -44,7 +43,8 @@ def duplicar_factura(
     fecha_nueva = fecha if fecha is not None else datetime.now(timezone.utc).date()
     numero_serie = siguiente_numero_factura(db, fecha_nueva.year)
 
-    # Copia las líneas en orden y deja que se recalculen sus montos.
+    # Copia las líneas en orden y respeta los montos ya guardados. Recalcular
+    # desde precio_unitario (redondeado a 2 decimales en la BD) cambiaría el total.
     lineas = [
         LineaFactura(
             orden=orden,
@@ -58,7 +58,7 @@ def duplicar_factura(
             gravada=linea.gravada,
             unidades_por_caja=linea.unidades_por_caja,
             cobrar_por=linea.cobrar_por,
-            monto=None,
+            monto=linea.monto,
             producto_id=linea.producto_id,
         )
         for orden, linea in enumerate(
@@ -87,8 +87,17 @@ def duplicar_factura(
         fecha_anulacion=None,
         lineas=lineas,
     )
-    # Recalcula totales y genera un código propio para el nuevo folio.
-    aplicar_totales(nueva)
+    # Copia los totales de la original y genera un código para el nuevo folio.
+    for campo in (
+        "subtotal",
+        "descuento_total",
+        "base_gravada",
+        "base_exenta",
+        "itbms",
+        "total",
+    ):
+        setattr(nueva, campo, getattr(factura, campo))
+
     nueva.codigo_verificacion = generar_codigo_verificacion(
         nueva.numero_serie,
         nueva.total,

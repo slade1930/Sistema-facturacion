@@ -61,8 +61,19 @@ class CategoriaRepository:
         for campo, valor in datos.model_dump(exclude_unset=True).items():
             setattr(obj, campo, valor)
         return _guardar(self.db, obj, commit)
-    # Sin borrar ni desactivar: la tabla no tiene campo de estado y los
-    # productos dependen de la categoría (FK RESTRICT).
+
+    def eliminar(self, obj: Categoria, commit: bool = True) -> None:
+        try:
+            self.db.delete(obj)
+            if commit:
+                self.db.commit()
+            else:
+                self.db.flush()
+        except IntegrityError as exc:
+            self.db.rollback()
+            raise IntegridadError(
+                "No se puede eliminar la categoría porque tiene productos asociados."
+            ) from exc
 
 
 class ProductoRepository:

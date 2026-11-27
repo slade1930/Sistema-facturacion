@@ -14,24 +14,33 @@ ejemplo, que falte FACTURA_HMAC_KEY) se deja subir: nada de dejarlo en "".
 Acepta Factura ORM, dict o cualquier objeto con los atributos del esquema.
 """
 
+import logging
 from datetime import date, datetime
 from decimal import Decimal
 from html import escape
 from io import BytesIO
+from pathlib import Path
 from typing import Any, Mapping, Optional
+from urllib.parse import quote, urlsplit, urlunsplit
 
 from reportlab.lib import colors
 from reportlab.lib.pagesizes import letter
 from reportlab.lib.styles import getSampleStyleSheet
 from reportlab.lib.units import mm
+from reportlab.graphics.barcode.qr import QrCodeWidget
+from reportlab.graphics.shapes import Drawing
 from reportlab.platypus import Paragraph, SimpleDocTemplate, Spacer, Table, TableStyle
+from PIL import Image as ImagenPIL
 
+from app.core.config import settings
 from app.services.numero_a_letras import monto_a_letras_factura
 from app.services.totales import calcular_monto_linea, calcular_totales
 from app.services.verificacion import (
     generar_codigo_verificacion as _generar_codigo_verificacion,
 )
 from app.utils.formatters import formato_fecha, formato_moneda
+
+logger = logging.getLogger(__name__)
 
 _CAMPOS_TOTALES = (
     "subtotal",
@@ -143,6 +152,7 @@ def construir_datos_comprobante(
             "direccion": cfg("empresa_direccion"),
             "correo": cfg("empresa_correo"),
             "telefono": cfg("empresa_telefono"),
+            "logo": cfg("logo"),
         },
         "numero_serie": numero_serie,
         "codigo_verificacion": codigo_verificacion_resuelto,
@@ -288,6 +298,110 @@ th, td {{ border: 1px solid #999; padding: 4px 6px; }}
 </body></html>"""
 
 
+def _logo_legible(ruta: Path) -> bool:
+    """Gente, confirmamos que Pillow puede decodificar el archivo completo."""
+    try:
+        with ImagenPIL.open(ruta) as imagen:
+            imagen.verify()
+        with ImagenPIL.open(ruta) as imagen:
+            imagen.load()
+        return True
+    except Exception:
+        return False
+
+
+def _cargar_logo(ruta_logo: Any) -> Optional[Any]:
+    """Devuelve el Flowable Image del logo o None si no se puede usar.
+
+    El campo ConfiguracionNegocio.logo guarda una ruta (absoluta o relativa
+    al cwd / backend). Acá nunca lanzamos: si el logo falta, no existe o la
+    imagen está corrupta, el PDF sale exactamente igual que sin logo.
+    """
+    if not ruta_logo:
+        return None
+    nombre = Path(str(ruta_logo)).name or "logo"
+    try:
+        from reportlab.lib.utils import ImageReader
+        from reportlab.platypus import Image as Imagen
+    except ImportError:
+        logger.warning("Sin soporte de imágenes (%s); PDF sin logo.", nombre)
+        return None
+    try:
+        ruta = Path(str(ruta_logo)).expanduser()
+        if not ruta.is_absolute():
+            base_backend = Path(__file__).resolve().parents[2]
+            candidatos = [ruta, Path.cwd() / ruta, base_backend / ruta]
+            ruta = next((c for c in candidatos if c.is_file()), candidatos[0])
+        if not ruta.is_file():
+            logger.warning("Logo no encontrado (%s); PDF sin logo.", nombre)
+            return None
+        if not _logo_legible(ruta):
+            logger.warning("Logo ilegible (%s); PDF sin logo.", nombre)
+            return None
+        lector = ImageReader(str(ruta))
+        ancho_px, alto_px = lector.getSize()
+        if ancho_px <= 0 or alto_px <= 0:
+            logger.warning("Logo sin dimensiones (%s); PDF sin logo.", nombre)
+            return None
+        max_ancho, max_alto = 30 * mm, 18 * mm
+        escala = min(max_ancho / ancho_px, max_alto / alto_px, 1.0)
+        return Imagen(str(ruta), width=ancho_px * escala, height=alto_px * escala)
+    except Exception:
+        logger.warning("No se pudo cargar el logo (%s); PDF sin logo.", nombre)
+        return None
+
+
+def _url_verificacion_publica(datos: Mapping[str, Any]) -> str:
+    base_url = (settings.FACTURA_VERIFICACION_BASE_URL or "").strip()
+    if not base_url:
+        raise RuntimeError(
+            "Falta FACTURA_VERIFICACION_BASE_URL; no se puede generar el QR de verificación."
+        )
+
+    partes = urlsplit(base_url)
+    if (
+        partes.scheme not in {"http", "https"}
+        or not partes.netloc
+        or partes.username
+        or partes.password
+        or partes.query
+        or partes.fragment
+    ):
+        raise ValueError(
+            "FACTURA_VERIFICACION_BASE_URL debe ser una URL HTTP(S) pública sin credenciales, "
+            "query ni fragmento."
+        )
+
+    prefijo = partes.path.rstrip("/")
+    ruta = (
+        f"{prefijo}/api/v1/verificar/"
+        f"{quote(str(datos['numero_serie']), safe='')}/"
+        f"{quote(str(datos['codigo_verificacion']), safe='')}"
+    )
+    return urlunsplit((partes.scheme, partes.netloc, ruta, "", ""))
+
+
+def _crear_qr_verificacion(datos: Mapping[str, Any]) -> Drawing:
+    qr = QrCodeWidget(_url_verificacion_publica(datos))
+    x1, y1, x2, y2 = qr.getBounds()
+    ancho, alto = x2 - x1, y2 - y1
+    tamaño = 30 * mm
+    dibujo = Drawing(
+        tamaño,
+        tamaño,
+        transform=[
+            tamaño / ancho,
+            0,
+            0,
+            tamaño / alto,
+            -x1 * tamaño / ancho,
+            -y1 * tamaño / alto,
+        ],
+    )
+    dibujo.add(qr)
+    return dibujo
+
+
 def generar_pdf(datos: dict[str, Any]) -> bytes:
     """Gente, devuelve la factura en PDF listo para guardar o enviar.
 
@@ -297,16 +411,20 @@ def generar_pdf(datos: dict[str, Any]) -> bytes:
     if not isinstance(datos, Mapping) or "empresa" not in datos:
         datos = construir_datos_comprobante(datos)
 
-    buffer = BytesIO()
-    documento = SimpleDocTemplate(
-        buffer,
-        pagesize=letter,
-        leftMargin=18 * mm,
-        rightMargin=18 * mm,
-        topMargin=16 * mm,
-        bottomMargin=16 * mm,
-        title=f"Factura {datos['numero_serie']}",
-    )
+    def crear_documento():
+        buf = BytesIO()
+        doc = SimpleDocTemplate(
+            buf,
+            pagesize=letter,
+            leftMargin=18 * mm,
+            rightMargin=18 * mm,
+            topMargin=16 * mm,
+            bottomMargin=16 * mm,
+            title=f"Factura {datos['numero_serie']}",
+        )
+        return buf, doc
+
+    buffer, documento = crear_documento()
     estilos = getSampleStyleSheet()
     normal = estilos["Normal"]
     normal.fontSize = 9
@@ -322,14 +440,36 @@ def generar_pdf(datos: dict[str, Any]) -> bytes:
     historia = [
         Paragraph(f"FACTURA {escape(str(datos['numero_serie']))}", estilos["Title"]),
         Spacer(1, 4 * mm),
-        texto(empresa["nombre"] or "(empresa sin configurar)"),
     ]
+
+    encabezado_empresa = [texto(empresa["nombre"] or "(empresa sin configurar)")]
     if empresa["ruc"]:
-        historia.append(texto(f"RUC: {empresa['ruc']}"))
+        encabezado_empresa.append(texto(f"RUC: {empresa['ruc']}"))
     if empresa["direccion"]:
-        historia.append(texto(empresa["direccion"]))
+        encabezado_empresa.append(texto(empresa["direccion"]))
     if empresa["correo"] or empresa["telefono"]:
-        historia.append(texto(f"{empresa['correo']} {empresa['telefono']}".strip()))
+        encabezado_empresa.append(texto(f"{empresa['correo']} {empresa['telefono']}".strip()))
+
+    logo = _cargar_logo(empresa.get("logo"))
+    indice_logo = None
+    if logo is not None:
+        ancho_disponible = letter[0] - (18 + 18) * mm
+        tabla_encabezado = Table(
+            [[logo, encabezado_empresa]],
+            colWidths=[32 * mm, ancho_disponible - 32 * mm],
+        )
+        tabla_encabezado.setStyle(TableStyle([
+            ("VALIGN", (0, 0), (-1, -1), "TOP"),
+            ("LEFTPADDING", (0, 0), (-1, -1), 0),
+            ("RIGHTPADDING", (0, 0), (-1, -1), 0),
+            ("TOPPADDING", (0, 0), (-1, -1), 0),
+            ("BOTTOMPADDING", (0, 0), (-1, -1), 0),
+        ]))
+        historia.append(tabla_encabezado)
+        indice_logo = len(historia) - 1
+    else:
+        historia += encabezado_empresa
+
     historia += [
         Spacer(1, 3 * mm),
         texto(
@@ -398,9 +538,25 @@ def generar_pdf(datos: dict[str, Any]) -> bytes:
         Spacer(1, 4 * mm),
         Paragraph(escape(datos["total_en_letras"]), estilos["Heading2"]),
         texto(f"Código de verificación: {datos['codigo_verificacion']}"),
+        Spacer(1, 3 * mm),
+        texto("Escanee el QR para verificar esta factura:"),
+        _crear_qr_verificacion(datos),
     ]
     if datos["notas"]:
         historia += [Spacer(1, 2 * mm), texto(f"Notas: {datos['notas']}")]
 
-    documento.build(historia)
+    try:
+        documento.build(historia)
+    except Exception:
+        if indice_logo is None:
+            raise
+        # Gente, si el logo se cuelga al dibujarse, reintentamos sin él.
+        logger.warning(
+            "No se pudo dibujar el logo (%s); PDF sin logo.",
+            Path(str(empresa.get("logo") or "logo")).name or "logo",
+        )
+        historia[indice_logo : indice_logo + 1] = encabezado_empresa
+        buffer, documento = crear_documento()
+        documento.build(historia)
+
     return buffer.getvalue()

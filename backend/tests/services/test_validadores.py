@@ -1,22 +1,22 @@
-"""Pruebas de la unificación de validadores.
+"""Pruebas de los validadores.
 
-La fuente oficial es app.utils.validators; app.services.Validators debe
-seguir funcionando como re-export para no romper imports viejos.
+La fuente oficial es app.utils.validators; todos los imports deben
+apuntar ahí directamente (ya no existe el shim app.services.Validators).
 """
 
 from decimal import Decimal
 
-import app.services.Validators as shim
 import app.utils.validators as oficial
 from app.utils import validators as oficial_directo
 
 
-def test_ambas_rutas_exponen_las_mismas_funciones():
+def test_todas_las_rutas_exponen_las_mismas_funciones():
+    assert oficial_directo is oficial
     nombres = oficial.__all__
     assert nombres, "utils.validators debe declarar __all__"
     for nombre in nombres:
-        assert getattr(oficial, nombre) is getattr(shim, nombre), nombre
-        assert getattr(oficial_directo, nombre) is getattr(shim, nombre), nombre
+        assert hasattr(oficial, nombre), nombre
+        assert getattr(oficial, nombre) is getattr(oficial_directo, nombre), nombre
 
 
 def test_comportamiento_validar_cantidad_se_conserva():
