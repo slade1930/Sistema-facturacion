@@ -1,0 +1,56 @@
+factura_id,numero_serie,tipo_anomalia,detalle
+1,FAC-2026-0001,total_muy_alto,Caso inyectado: total_muy_alto
+2,FAC-2026-0002,factura_anulada,Caso inyectado: factura_anulada
+9,FAC-2025-0003,factura_anulada,Caso inyectado: factura_anulada
+38,FAC-2024-0011,factura_anulada,Caso inyectado: factura_anulada
+50,FAC-2024-0015,factura_anulada,Caso inyectado: factura_anulada
+56,FAC-2025-0025,factura_anulada,Caso inyectado: factura_anulada
+59,FAC-2025-0028,factura_anulada,Caso inyectado: factura_anulada
+90,FAC-2026-0022,serie_duplicada,Repite la serie de la factura 89
+150,FAC-2024-0032,factura_anulada,Caso inyectado: factura_anulada
+168,FAC-2026-0052,cliente_sin_ruc,Caso inyectado: cliente_sin_ruc
+179,FAC-2024-0040,serie_duplicada,Repite la serie de la factura 178
+182,FAC-2024-0042,sin_itbms,Caso inyectado: sin_itbms
+198,FAC-2025-0089,descuento_alto,Caso inyectado: descuento_alto
+204,FAC-2025-0091,factura_anulada,Caso inyectado: factura_anulada
+212,FAC-2025-0096,total_muy_alto,Caso inyectado: total_muy_alto
+217,FAC-2025-0097,factura_anulada,Caso inyectado: factura_anulada
+242,FAC-2026-0078,factura_anulada,Caso inyectado: factura_anulada
+249,FAC-2024-0061,factura_anulada,Caso inyectado: factura_anulada
+268,FAC-2026-0083,serie_duplicada,Repite la serie de la factura 267
+277,FAC-2024-0072,factura_anulada,Caso inyectado: factura_anulada
+299,FAC-2026-0097,factura_anulada,Caso inyectado: factura_anulada
+335,FAC-2026-0111,cliente_sin_ruc,Caso inyectado: cliente_sin_ruc
+357,FAC-2024-0099,serie_duplicada,Repite la serie de la factura 356
+360,FAC-2024-0102,factura_anulada,Caso inyectado: factura_anulada
+363,FAC-2025-0143,sin_itbms,Caso inyectado: sin_itbms
+389,FAC-2025-0151,factura_anulada,Caso inyectado: factura_anulada
+395,FAC-2026-0133,descuento_alto,Caso inyectado: descuento_alto
+406,FAC-2025-0159,factura_anulada,Caso inyectado: factura_anulada
+423,FAC-2025-0167,total_muy_alto,Caso inyectado: total_muy_alto
+434,FAC-2024-0118,factura_anulada,Caso inyectado: factura_anulada
+445,FAC-2025-0177,factura_anulada,Caso inyectado: factura_anulada
+446,FAC-2025-0177,serie_duplicada,Repite la serie de la factura 445
+448,FAC-2024-0123,factura_anulada,Caso inyectado: factura_anulada
+463,FAC-2026-0154,factura_anulada,Caso inyectado: factura_anulada
+489,FAC-2025-0192,factura_anulada,Caso inyectado: factura_anulada
+502,FAC-2026-0168,cliente_sin_ruc,Caso inyectado: cliente_sin_ruc
+535,FAC-2024-0146,serie_duplicada,Repite la serie de la factura 534
+544,FAC-2025-0208,sin_itbms,Caso inyectado: sin_itbms
+592,FAC-2026-0208,descuento_alto,Caso inyectado: descuento_alto
+597,FAC-2025-0230,factura_anulada,Caso inyectado: factura_anulada
+624,FAC-2024-0162,serie_duplicada,Repite la serie de la factura 623
+634,FAC-2025-0252,total_muy_alto,Caso inyectado: total_muy_alto
+669,FAC-2026-0230,cliente_sin_ruc,Caso inyectado: cliente_sin_ruc
+713,FAC-2026-0254,serie_duplicada,Repite la serie de la factura 712
+725,FAC-2025-0290,sin_itbms,Caso inyectado: sin_itbms
+746,FAC-2026-0266,factura_anulada,Caso inyectado: factura_anulada
+789,FAC-2024-0192,descuento_alto,Caso inyectado: descuento_alto
+802,FAC-2025-0325,serie_duplicada,Repite la serie de la factura 801
+836,FAC-2026-0293,cliente_sin_ruc,Caso inyectado: cliente_sin_ruc
+845,FAC-2026-0298,total_muy_alto,Caso inyectado: total_muy_alto
+891,FAC-2026-0317,serie_duplicada,Repite la serie de la factura 890
+895,FAC-2026-0318,factura_anulada,Caso inyectado: factura_anulada
+906,FAC-2025-0361,sin_itbms,Caso inyectado: sin_itbms
+980,FAC-2026-0356,serie_duplicada,Repite la serie de la factura 979
+986,FAC-2025-0392,descuento_alto,Caso inyectado: descuento_alto
