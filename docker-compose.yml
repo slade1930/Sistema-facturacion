@@ -22,10 +22,13 @@ services:
         condition: service_healthy
     environment:
       DATABASE_URL: postgresql+psycopg://${POSTGRES_USER:-factura}:${POSTGRES_PASSWORD:-factura}@db:5432/${POSTGRES_DB:-factura}
-      FACTURA_HMAC_KEY: ${FACTURA_HMAC_KEY:-dev-hmac-cambiar}
+      FACTURA_HMAC_KEY: ${FACTURA_HMAC_KEY:?Define FACTURA_HMAC_KEY en tu .env}
       API_KEY: ${API_KEY:?Define API_KEY en tu .env}
     ports:
       - "8000:8000"
+    # Modelos entrenados: persisten acá y nunca entran a Git.
+    volumes:
+      - ./backend/ml_models:/app/ml_models
     # Esperamos a la db, pasamos migraciones y recién ahí arranca uvicorn.
     command: >
       sh -c "alembic upgrade head && uvicorn app.main:app --host 0.0.0.0 --port 8000"

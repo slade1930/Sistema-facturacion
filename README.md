@@ -17,7 +17,7 @@ docker compose up --build
 
 La primera vez `--build` arma la imagen. En las siguientes podés usar `docker compose up -d` para dejarlo corriendo en segundo plano.
 
-Antes de levantar, copiá `.env.example` a `.env` y definí `API_KEY` y `FACTURA_HMAC_KEY` con tus propios valores. Ambas son obligatorias: si falta alguna, la app no arranca. Si además querés cambiar los usuarios/claves de PostgreSQL, editá los otros valores en ese mismo `.env`. El `.env` real nunca se sube a git.
+Antes de levantar, copiá `.env.example` a `.env` y definí `API_KEY` y `FACTURA_HMAC_KEY` con tus propios valores. Ambas son obligatorias: si falta alguna, la app no arranca. Los ejemplos traen `cambia_esta_clave` de placeholder: reemplazalo. Compose ya no pone ningún default para `FACTURA_HMAC_KEY`, y el valor de desarrollo viejo quedó rechazado. Si además querés cambiar los usuarios/claves de PostgreSQL, editá los otros valores en ese mismo `.env`. El `.env` real nunca se sube a git.
 
 ## Probar que levantó
 
