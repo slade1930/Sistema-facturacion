@@ -17,9 +17,8 @@ Reglas del esquema del proyecto:
 - `total` = base gravada + base exenta + ITBMS + portes. Los portes no
   generan ITBMS y no pueden ser negativos.
 
-Las validaciones de cantidad, precio, descuento y unidades por caja siguen
-viniendo de `app.utils.validators` (ruta oficial; `app.services.Validators`
-queda solo como re-export).
+Las validaciones de cantidad, precio, descuento y unidades por caja vienen
+de `app.utils.validators`, la ruta oficial de validadores.
 """
 
 from decimal import ROUND_HALF_UP, Decimal
