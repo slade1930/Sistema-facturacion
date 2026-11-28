@@ -1,9 +1,21 @@
 import asyncio
 from typing import Any
+from urllib.parse import quote
 
+import httpx
 from nicegui import ui
 
-from components.layout import montar_layout
+from components.forms import (
+    barra_acciones,
+    boton_orquidea,
+    campo_orquidea,
+    mensaje_error,
+    mostrar_error,
+    seccion_formulario,
+    texto_amigable,
+)
+from components.layout import datos_negocio, montar_layout
+from components.shared import estado_vacio
 from state.cliente_api import ClienteApi, ErrorApi
 
 cliente = ClienteApi()
@@ -35,6 +47,15 @@ CAMPOS_TEXTO = (
     ("Notas predeterminadas", "notas_predeterminadas"),
 )
 
+MENSAJE_CONEXION = (
+    "No pudimos conectar con el sistema. Revisa tu conexión e inténtalo de nuevo."
+)
+MENSAJE_CARGA = "No pudimos cargar los datos del negocio."
+MENSAJE_GUARDADO = "Cambios guardados"
+PRIMERA_CONFIGURACION = (
+    "Aún no configuraste tu negocio. Completa los datos para empezar."
+)
+
 
 def obtener_configuracion(cliente_api: ClienteApi) -> dict[str, Any]:
     return cliente_api.get("/api/v1/configuracion")
@@ -48,6 +69,32 @@ def construir_cambios(valores: dict[str, Any]) -> dict[str, Any]:
             valor = valor.strip() or None
         cambios[clave] = valor
     return cambios
+
+
+def cambios_para_guardar(
+    configuracion: dict[str, Any],
+    valores: dict[str, Any],
+    *,
+    inicial: bool = False,
+) -> dict[str, Any]:
+    """Envía todos los datos en la primera carga y solo lo cambiado después."""
+    cambios = construir_cambios(valores)
+    if inicial:
+        return cambios
+    return {
+        clave: valor
+        for clave, valor in cambios.items()
+        if valor != _valor_normalizado(configuracion, clave)
+    }
+
+
+def _valor_normalizado(datos: dict[str, Any], clave: str) -> Any:
+    valor = datos.get(clave)
+    if isinstance(valor, str):
+        return valor.strip() or None
+    if isinstance(valor, bool):
+        return valor
+    return None
 
 
 def actualizar_configuracion(
@@ -68,77 +115,266 @@ def subir_logo(
     )
 
 
+def es_error_de_conexion(error: Exception) -> bool:
+    return isinstance(
+        error,
+        (httpx.ConnectError, httpx.ConnectTimeout, httpx.ReadTimeout, httpx.NetworkError),
+    )
+
+
 def _valor(datos: dict[str, Any], clave: str) -> str:
     valor = datos.get(clave)
     return "" if valor is None else str(valor)
 
 
+def _url_logo(ruta: str) -> str | None:
+    texto = ruta.strip()
+    if not texto or ".." in texto or "\\" in texto:
+        return None
+    if texto.startswith(("http://", "https://", "//")):
+        return None
+    nombre = texto.rsplit("/", 1)[-1]
+    return f"/media/{quote(nombre)}" if nombre else None
+
+
+def _pintar_logo(contenedor: Any, ruta: str) -> None:
+    contenedor.clear()
+    with contenedor:
+        url = _url_logo(ruta)
+        if url:
+            ui.image(url).classes("orq-logo-vista w-28 h-24 object-contain")
+        else:
+            estado_vacio("Sin logo cargado")
+
+
+def _sin_evaluar(datos: dict[str, Any]) -> bool:
+    return datos.get("evaluado") is False or datos.get("modelo") is None
+
+
+def _recomendaciones_pendientes(cliente_api: ClienteApi) -> bool:
+    vistas = 0
+    for ruta in ("/api/v1/ml/pronostico", "/api/v1/ml/recomendaciones"):
+        try:
+            respuesta = cliente_api.get(ruta)
+        except Exception:
+            continue
+        if not isinstance(respuesta, dict):
+            continue
+        vistas += 1
+        if not _sin_evaluar(respuesta):
+            return False
+    return vistas > 0
+
+
+def _etiquetas() -> dict[str, str]:
+    return {clave: etiqueta for etiqueta, clave in CAMPOS_TEXTO}
+
+
+def _errores_por_campo(error: ErrorApi) -> dict[str, str]:
+    encontrados: dict[str, str] = {}
+    for detalle in error.errors:
+        if not isinstance(detalle, dict):
+            continue
+        partes = detalle.get("loc") or []
+        if not partes:
+            continue
+        clave = str(partes[-1])
+        if clave not in CAMPOS_EDICION:
+            continue
+        texto = texto_amigable(str(detalle.get("msg") or ""))
+        encontrados[clave] = texto
+    return encontrados
+
+
 @ui.page("/configuracion")
 def pagina_configuracion() -> None:
-    montar_layout("Configuración")
+    montar_layout("Configuración del negocio", ruta_activa="/configuracion")
 
-    mensajes = ui.column()
-    try:
-        configuracion = obtener_configuracion(cliente)
-    except ErrorApi as error:
-        with mensajes:
-            ui.label(f"{error.code}: {error.detail}").classes("text-negative")
-        return
+    mensajes = ui.column().classes("w-full gap-1")
+    contenido = ui.column().classes("w-full gap-2")
+    configuracion: dict[str, Any] = {}
+    errores_campos: dict[str, Any] = {}
 
-    campos: dict[str, Any] = {}
-    with ui.card().classes("w-full gap-2"):
-        ui.label("Datos del negocio").classes("text-h6")
-        for etiqueta, clave in CAMPOS_TEXTO:
-            campos[clave] = ui.input(
-                etiqueta, value=_valor(configuracion, clave)
-            ).classes("w-full")
-        campos["mostrar_ruc"] = ui.checkbox(
-            "Mostrar RUC", value=bool(configuracion.get("mostrar_ruc", True))
-        )
-        ruta_logo = ui.label(
-            f"Logo actual: {_valor(configuracion, 'logo') or 'sin logo'}"
-        ).classes("text-caption")
+    def aviso_con_reintento(contenedor: Any, texto: str, accion: Any) -> None:
+        with contenedor:
+            mensaje_error(texto)
+            boton_orquidea("Reintentar", accion, variante="secundario")
 
-    def mostrar_error(error: ErrorApi) -> None:
+    def limpiar_errores_campos() -> None:
+        for contenedor in errores_campos.values():
+            contenedor.clear()
+
+    def reintentar_guardado() -> None:
+        guardar()
+
+    def reintentar_carga() -> None:
+        cargar()
+
+    def mostrar_errores_campos(error: ErrorApi) -> None:
+        etiquetas = _etiquetas()
+        for clave, texto in _errores_por_campo(error).items():
+            contenedor = errores_campos.get(clave)
+            if contenedor is not None:
+                with contenedor:
+                    mensaje_error(f"{etiquetas.get(clave, clave)}: {texto}.")
+
+    def confirmar_cambios(datos: dict[str, Any]) -> None:
         mensajes.clear()
         with mensajes:
-            ui.label(f"{error.code}: {error.detail}").classes("text-negative")
-            for item in error.errors:
-                ui.label(str(item)).classes("text-caption text-negative")
+            ui.label(MENSAJE_GUARDADO).classes("text-positive")
+        datos_negocio.cache_clear()
+        _pintar_logo(vista_logo, _valor(datos, "logo"))
 
-    def guardar() -> None:
+    def guardar(*, notificar_cambio: bool = True) -> dict[str, Any] | None:
+        mensajes.clear()
+        limpiar_errores_campos()
         valores = {clave: widget.value for clave, widget in campos.items()}
+        cambios = cambios_para_guardar(
+            configuracion, valores, inicial=not configuracion
+        )
+        if not cambios:
+            if notificar_cambio:
+                with mensajes:
+                    ui.label(MENSAJE_GUARDADO).classes("text-positive")
+            return None
         try:
-            datos = actualizar_configuracion(cliente, construir_cambios(valores))
+            datos = actualizar_configuracion(cliente, cambios)
         except ErrorApi as error:
-            mostrar_error(error)
-            return
-        mensajes.clear()
-        with mensajes:
-            ui.label("Configuración guardada.").classes("text-positive")
-        ruta_logo.set_text(f"Logo actual: {_valor(datos, 'logo') or 'sin logo'}")
+            with mensajes:
+                mensaje_error(error.detail)
+            mostrar_errores_campos(error)
+            return None
+        except Exception as error:
+            if es_error_de_conexion(error):
+                aviso_con_reintento(mensajes, MENSAJE_CONEXION, reintentar_guardado)
+            else:
+                aviso_con_reintento(mensajes, MENSAJE_CARGA, reintentar_guardado)
+            return None
+        configuracion.update(datos)
+        if notificar_cambio:
+            confirmar_cambios(datos)
+        else:
+            datos_negocio.cache_clear()
+        return datos
 
     async def recibir_logo(event: Any) -> None:
+        mensajes.clear()
+        limpiar_errores_campos()
         archivo = event.file
+        if not configuracion:
+            if guardar(notificar_cambio=False) is None:
+                return
         contenido = await archivo.read()
         try:
             datos = await asyncio.to_thread(
                 subir_logo, cliente, archivo.name, contenido, archivo.content_type
             )
         except ErrorApi as error:
-            mostrar_error(error)
+            mostrar_error(mensajes, error)
             return
-        mensajes.clear()
-        with mensajes:
-            ui.label("Logo actualizado.").classes("text-positive")
-        ruta_logo.set_text(f"Logo actual: {_valor(datos, 'logo') or 'sin logo'}")
+        except Exception as error:
+            if es_error_de_conexion(error):
+                aviso_con_reintento(mensajes, MENSAJE_CONEXION, lambda: ui.navigate.to("/configuracion"))
+            else:
+                aviso_con_reintento(mensajes, MENSAJE_CARGA, lambda: ui.navigate.to("/configuracion"))
+            return
+        configuracion.update(datos)
+        confirmar_cambios(datos)
 
-    with ui.row().classes("gap-2 my-2"):
-        ui.button("Guardar", on_click=guardar)
-        ui.upload(
-            label="Subir logo (PNG, JPG o WEBP, hasta 5 MB)",
-            auto_upload=True,
-            max_file_size=5 * 1024 * 1024,
-            max_files=1,
-            on_upload=recibir_logo,
-        )
+    def campo_edituable(
+        clave: str, etiqueta: str, *, placeholder: str | None = None
+    ) -> None:
+        opciones: dict[str, Any] = {"value": _valor(configuracion, clave)}
+        if placeholder:
+            opciones["placeholder"] = placeholder
+        campos[clave] = campo_orquidea(etiqueta, **opciones).classes("w-full")
+        errores_campos[clave] = ui.column().classes("w-full gap-0")
+
+    def montar_formulario(inicial: bool) -> None:
+        nonlocal vista_logo
+        campos.clear()
+        errores_campos.clear()
+        with contenido:
+            if inicial:
+                ui.label(PRIMERA_CONFIGURACION).classes("orq-bloque-ayuda")
+            ui.label("Sistema en línea").classes("orq-ayuda")
+
+            with seccion_formulario(
+                "Datos del negocio", "Los datos que aparecen en cada factura."
+            ):
+                for clave in (
+                    "empresa_nombre",
+                    "empresa_ruc",
+                    "empresa_direccion",
+                    "empresa_correo",
+                    "empresa_telefono",
+                ):
+                    campo_edituable(clave, _etiquetas()[clave])
+                campos["mostrar_ruc"] = ui.checkbox(
+                    "Mostrar RUC", value=bool(configuracion.get("mostrar_ruc", True))
+                )
+                errores_campos["mostrar_ruc"] = ui.column().classes("w-full gap-0")
+
+            with seccion_formulario("Apariencia", "Tonos suaves para el documento."):
+                for clave in ("color_principal", "color_barra_factura", "color_tabla"):
+                    campo_edituable(
+                        clave, _etiquetas()[clave], placeholder="#3A0088"
+                    )
+
+            with seccion_formulario(
+                "Logo", "Una imagen sencilla para identificar al negocio.", rejilla=False
+            ):
+                with ui.element("div").classes("orq-dos-columnas w-full"):
+                    with ui.column().classes("w-full gap-1"):
+                        ui.upload(
+                            label="Elegir imagen",
+                            auto_upload=True,
+                            max_file_size=5 * 1024 * 1024,
+                            max_files=1,
+                            on_upload=recibir_logo,
+                        ).classes("w-full")
+                        ui.label("PNG, JPG o WEBP · hasta 5 MB").classes("orq-ayuda")
+                    vista_logo = ui.column().classes("w-full items-start")
+                _pintar_logo(vista_logo, _valor(configuracion, "logo"))
+
+            with seccion_formulario(
+                "Textos por defecto", "Notas que se agregan automáticamente."
+            ):
+                for clave in ("datos_bancarios", "notas_predeterminadas"):
+                    campo_edituable(clave, _etiquetas()[clave])
+
+            if _recomendaciones_pendientes(cliente):
+                with ui.element("section").classes("orq-seccion w-full"):
+                    ui.label("Recomendaciones automáticas").classes("orq-seccion-titulo")
+                    ui.label(
+                        "Sugerencias disponibles cuando haya suficiente historial."
+                    ).classes("orq-seccion-ayuda")
+                    estado_vacio("Sin evaluar")
+
+            barra_acciones("Guardar", reintentar_guardado, destino_cancelar="/")
+
+    def cargar() -> None:
+        nonlocal configuracion, vista_logo
+        contenido.clear()
+        mensajes.clear()
+        errores_campos.clear()
+        campos.clear()
+        try:
+            datos = obtener_configuracion(cliente)
+        except ErrorApi as error:
+            if error.status_code != 404:
+                with contenido:
+                    mostrar_error(contenido, error)
+                    boton_orquidea("Reintentar", cargar, variante="secundario")
+                return
+            datos = {}
+        except Exception as error:
+            texto = MENSAJE_CONEXION if es_error_de_conexion(error) else MENSAJE_CARGA
+            aviso_con_reintento(contenido, texto, cargar)
+            return
+        configuracion = datos if isinstance(datos, dict) else {}
+        montar_formulario(not bool(configuracion))
+
+    campos: dict[str, Any] = {}
+    vista_logo: Any = None
+    cargar()
