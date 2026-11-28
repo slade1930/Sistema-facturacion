@@ -1,10 +1,12 @@
 """Consultas y bloqueo de existencias por producto. Admin y compras; etapa A."""
 
-from sqlalchemy import select
+from decimal import Decimal
+
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app.models.catalogo import Producto
-from app.models.inventario import Inventario, MovimientoInventario
+from app.models.inventario import Inventario, MovimientoInventario, TipoMovimiento
 
 
 class InventarioRepository:
@@ -59,3 +61,39 @@ class InventarioRepository:
             .limit(limit)
         )
         return list(self.db.scalars(stmt).all())
+
+    def salidas_por_factura(self, factura_id: int) -> list[tuple[int, Decimal]]:
+        """Total de salidas por producto que tienen fila de inventario."""
+        stmt = (
+            select(
+                MovimientoInventario.producto_id,
+                func.sum(MovimientoInventario.cantidad),
+            )
+            .join(
+                Inventario,
+                Inventario.producto_id == MovimientoInventario.producto_id,
+            )
+            .where(
+                MovimientoInventario.factura_id == factura_id,
+                MovimientoInventario.tipo == TipoMovimiento.SALIDA,
+            )
+            .group_by(MovimientoInventario.producto_id)
+            .order_by(MovimientoInventario.producto_id)
+        )
+        return [
+            (int(producto_id), Decimal(str(total)))
+            for producto_id, total in self.db.execute(stmt).all()
+        ]
+
+    def ya_devolvio_factura(self, factura_id: int) -> bool:
+        """¿Ya se registraron entradas de anulación para esta factura?"""
+        stmt = (
+            select(MovimientoInventario.id)
+            .where(
+                MovimientoInventario.factura_id == factura_id,
+                MovimientoInventario.tipo == TipoMovimiento.ENTRADA,
+                MovimientoInventario.motivo.startswith("anulación de la factura "),
+            )
+            .limit(1)
+        )
+        return self.db.scalar(stmt) is not None
