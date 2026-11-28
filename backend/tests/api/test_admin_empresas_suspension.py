@@ -122,18 +122,24 @@ def test_admin_reactivar_empresa_permite_login_nuevo(client):
 
 
 def test_admin_listado_empresas_filtra_por_sector_activo_y_busqueda(client):
-    id_1 = _registrar(client, NOMBRE_1, "RUC-ADM-FILTRO-1", "tecnologia")
+    """Los totales son relativos: la base de pruebas puede tener otras empresas."""
+    _registrar(client, NOMBRE_1, "RUC-ADM-FILTRO-1", "tecnologia")
     _registrar(client, NOMBRE_2, "RUC-ADM-FILTRO-2", "turismo")
 
     por_sector = client.get(
-        "/api/v1/admin/empresas", params={"sector": "tecnologia"}
+        "/api/v1/admin/empresas", params={"sector": "tecnologia", "limite": 100}
     )
     assert por_sector.status_code == 200, por_sector.text
-    assert por_sector.json()["total"] == 1
-    assert por_sector.json()["items"][0]["nombre_empresa"] == NOMBRE_1
+    sector_items = por_sector.json()["items"]
+    assert NOMBRE_1 in {item["nombre_empresa"] for item in sector_items}
+    assert NOMBRE_2 not in {item["nombre_empresa"] for item in sector_items}
+    assert all(item["sector"] == "tecnologia" for item in sector_items)
 
     empresa_id = client.get(
         "/api/v1/admin/empresas", params={"busqueda": NOMBRE_1}
+    ).json()["items"][0]["id"]
+    empresa_id_2 = client.get(
+        "/api/v1/admin/empresas", params={"busqueda": NOMBRE_2}
     ).json()["items"][0]["id"]
     suspendida = client.put(
         f"/api/v1/admin/empresas/{empresa_id}/estado", json={"activo": False}
@@ -141,15 +147,21 @@ def test_admin_listado_empresas_filtra_por_sector_activo_y_busqueda(client):
     assert suspendida.status_code == 200, suspendida.text
 
     inactivas = client.get(
-        "/api/v1/admin/empresas", params={"activo": False}
+        "/api/v1/admin/empresas", params={"activo": False, "limite": 100}
     )
     assert inactivas.status_code == 200, inactivas.text
-    assert inactivas.json()["total"] == 1
-    assert inactivas.json()["items"][0]["cuenta_activa"] is False
+    inactivas_ids = {item["id"] for item in inactivas.json()["items"]}
+    assert empresa_id in inactivas_ids
+    assert all(item["cuenta_activa"] is False for item in inactivas.json()["items"])
 
-    activas = client.get("/api/v1/admin/empresas", params={"activo": True})
+    activas = client.get(
+        "/api/v1/admin/empresas", params={"activo": True, "limite": 100}
+    )
     assert activas.status_code == 200, activas.text
-    assert activas.json()["total"] == 1
+    activas_ids = {item["id"] for item in activas.json()["items"]}
+    assert empresa_id_2 in activas_ids
+    assert empresa_id not in activas_ids
+    assert all(item["cuenta_activa"] is True for item in activas.json()["items"])
 
     por_ruc = client.get(
         "/api/v1/admin/empresas", params={"busqueda": "RUC-ADM-FILTRO-1"}
@@ -157,4 +169,3 @@ def test_admin_listado_empresas_filtra_por_sector_activo_y_busqueda(client):
     assert por_ruc.status_code == 200, por_ruc.text
     assert por_ruc.json()["total"] == 1
     assert por_ruc.json()["items"][0]["id"] == empresa_id
-    assert id_1  # La cuenta creada corresponde a la empresa filtrada.
