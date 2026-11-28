@@ -117,8 +117,8 @@ def pagina_convertir(pedido_id: int | None = None) -> None:
         if pedido_id is None:
             with contenido:
                 estado_vacio(
-                    "Elegí un pedido desde la lista para facturarlo.",
-                    "Volvé a pedidos por facturar para continuar.",
+                    "Elige un pedido desde la lista para facturarlo.",
+                    "Vuelve a pedidos por facturar para continuar.",
                 )
                 boton_enlace(
                     "Ver pedidos por facturar",

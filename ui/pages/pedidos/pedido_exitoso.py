@@ -44,7 +44,7 @@ def pagina_pedido_exitoso(pedido_id: int | None = None) -> None:
         with contenido:
             estado_vacio(
                 "No pudimos encontrar el pedido creado.",
-                "Volvé a la lista para elegir uno.",
+                "Vuelve a la lista para elegir uno.",
             )
             volver()
         return

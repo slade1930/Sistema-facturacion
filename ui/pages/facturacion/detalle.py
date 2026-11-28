@@ -107,7 +107,7 @@ def pagina_detalle(factura_id: int | None = None) -> None:
         texto = (entrada.value or "").strip()
         if not texto.isdigit():
             with mensajes:
-                mensaje_error("Ingresá un número de registro válido.")
+                mensaje_error("Ingresa un número de registro válido.")
             return
         try:
             factura = obtener(cliente, int(texto))
@@ -171,6 +171,6 @@ def pagina_detalle(factura_id: int | None = None) -> None:
         mostrar_error(mensajes, error_inicial)
     elif id_invalido:
         with mensajes:
-            mensaje_error("Ingresá un número de registro válido.")
+            mensaje_error("Ingresa un número de registro válido.")
     elif factura_inicial is not None:
         pintar(factura_inicial)

@@ -20,9 +20,9 @@ CAMPOS_AMIGABLES = {
 
 MENSAJES_AMIGABLES = {
     "Field required": "falta este dato",
-    "List should have at least 1 item": "agregá al menos una línea",
-    "none is not an allowed value": "elegí una opción",
-    "value is not a valid decimal": "usá un número válido",
+    "List should have at least 1 item": "agrega al menos una línea",
+    "none is not an allowed value": "elige una opción",
+    "value is not a valid decimal": "usa un número válido",
 }
 
 
@@ -104,11 +104,22 @@ def mensaje_error(texto: str) -> Any:
     return ui.label(texto).classes("orq-error")
 
 
+def texto_amigable(mensaje: str) -> str:
+    """Traduce un mensaje técnico a una instrucción corta y en tú."""
+    texto = mensaje.strip()
+    for original, traduccion in MENSAJES_AMIGABLES.items():
+        if texto.startswith(original):
+            return traduccion
+    if not texto or texto[0].islower():
+        return "revisa este dato"
+    return texto
+
+
 def mostrar_error(contenedor: Any, error: Exception) -> None:
     """Explica el fallo sin mostrar códigos, rutas ni mensajes técnicos."""
     with contenedor:
         if not isinstance(error, ErrorApi):
-            mensaje_error("No se pudo completar la acción. Intentá de nuevo.")
+            mensaje_error("No se pudo completar la acción. Intenta de nuevo.")
             return
         mensaje_error(error.detail)
         for detalle in error.errors:
@@ -119,12 +130,10 @@ def mostrar_error(contenedor: Any, error: Exception) -> None:
                     clave = str(partes[-1])
                     ubicacion = CAMPOS_AMIGABLES.get(clave, clave.replace("_", " "))
                 mensaje = str(detalle.get("msg") or "").strip()
-                texto = MENSAJES_AMIGABLES.get(mensaje, "")
-                if not texto:
-                    texto = mensaje if mensaje and mensaje[0].isupper() else "revisá este dato"
+                texto = texto_amigable(mensaje)
                 mensaje_error(f"{ubicacion}: {texto}." if ubicacion else f"{texto}.")
             else:
-                mensaje_error("Revisá los datos e intentá de nuevo.")
+                mensaje_error("Revisa los datos e intenta de nuevo.")
 
 
 def notificar(mensaje: str, tipo: str = "positive") -> None:
@@ -175,4 +184,5 @@ __all__ = [
     "numero_orquidea",
     "seccion_formulario",
     "selector_orquidea",
+    "texto_amigable",
 ]

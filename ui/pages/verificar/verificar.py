@@ -16,7 +16,7 @@ from state.cliente_api import ClienteApi, ErrorApi
 
 cliente = ClienteApi()
 
-REVISAR = "Revisá el número de serie y el código impresos en la factura."
+REVISAR = "Revisa el número de serie y el código impresos en la factura."
 
 
 def consultar(cliente_api: ClienteApi, numero_serie: str, codigo: str) -> dict[str, Any]:
@@ -33,7 +33,7 @@ def pagina_verificar(numero_serie: str = "", codigo: str = "") -> None:
     montar_layout("Comprobar una factura", ruta_activa="/verificar")
 
     with seccion_formulario(
-        "Datos de la factura", "Tomá los valores impresos en el comprobante.",
+        "Datos de la factura", "Toma los valores impresos en el comprobante.",
         rejilla=False,
     ):
         with ui.element("div").classes("orq-dos-columnas w-full"):

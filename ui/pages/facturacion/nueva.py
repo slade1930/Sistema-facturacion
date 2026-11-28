@@ -367,7 +367,7 @@ def pagina_nueva() -> None:
 
         if not payload["cliente_nombre"] or not payload["lineas"]:
             with mensajes:
-                ui.label("Ingresá el cliente y al menos una línea.").classes(
+                ui.label("Ingresa el cliente y al menos una línea.").classes(
                     "orq-error"
                 )
             return
@@ -400,7 +400,7 @@ def pagina_nueva() -> None:
         with ui.column().classes("w-full"):
             with seccion_formulario(
                 "Datos del cliente",
-                "Elegí un cliente guardado o completá sus datos a mano.",
+                "Elige un cliente guardado o completa sus datos a mano.",
             ):
                 cliente_selector = selector_orquidea(
                     "Buscar cliente", opciones_clientes, value=nombre_guardado
@@ -423,7 +423,7 @@ def pagina_nueva() -> None:
                 sucursal = campo_orquidea("Sucursal", value=_valor(guardado, "sucursal"))
                 mostrar_ruc = ui.checkbox("Mostrar RUC", value=True)
                 ui.label(
-                    "Si el cliente no está en la lista, completá sus datos acá."
+                    "Si el cliente no está en la lista, completa sus datos acá."
                 ).classes("orq-ayuda")
 
             with seccion_formulario(
@@ -475,7 +475,7 @@ def pagina_nueva() -> None:
         with ui.column().classes("w-full orq-resumen"):
             resumen = ui.column().classes("w-full")
             ui.label(
-                "El total se actualiza mientras completás las líneas."
+                "El total se actualiza mientras completas las líneas."
             ).classes("orq-ayuda")
 
     ui.timer(0.5, al_ticar)

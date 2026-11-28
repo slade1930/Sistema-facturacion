@@ -120,7 +120,7 @@ def pagina_historial() -> None:
             if not items:
                 estado_vacio(
                     "Aún no hay facturas con estos filtros.",
-                    "Probá con otros criterios o emití la primera.",
+                    "Prueba con otros criterios o emite la primera.",
                 )
                 return
             tablero = tabla_orquidea(list(COLUMNAS), items, row_key="id")
