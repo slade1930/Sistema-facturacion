@@ -20,6 +20,11 @@ TABLAS_ESPERADAS = {
     "cliente_b2b",
     "pedido_b2b",
     "linea_pedido_b2b",
+    "cuenta",
+    "sesion",
+    "auditoria",
+    "inventario",
+    "movimiento_inventario",
 }
 
 
@@ -50,14 +55,14 @@ def _columnas_unicas(tabla):
 
 def test_tablas_del_pr1():
     assert TABLAS_ESPERADAS == set(Base.metadata.tables)
-    assert len(Base.metadata.tables) == 10
+    assert len(Base.metadata.tables) == 15
 
 
 def test_factura_no_tiene_fk_a_configuracion_negocio():
     tabla = Base.metadata.tables["factura"]
     destinos = {fk.target_fullname for fk in tabla.foreign_keys}
     assert "configuracion_negocio.id" not in destinos
-    assert destinos == set(), destinos
+    assert destinos == {"cliente_b2b.id"}, destinos
 
 
 def test_factura_no_tiene_factura_generada_id():

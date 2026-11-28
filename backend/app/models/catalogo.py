@@ -46,6 +46,12 @@ class TipoEmpaque(str, Enum):
     UNIDAD = "unidad"
 
 
+class SectorEmpresa(str, Enum):
+    TECNOLOGIA = "tecnologia"
+    TURISMO = "turismo"
+    SUPERMERCADO = "supermercado"
+
+
 def _valores(enum_cls):
     # Ojo: guardamos el value en minúsculas, no el nombre del miembro.
     return [miembro.value for miembro in enum_cls]
@@ -56,6 +62,10 @@ class Categoria(Base):
 
     id: Mapped[int] = mapped_column(BIGINT, primary_key=True)
     nombre: Mapped[str] = mapped_column(String(100), nullable=False, unique=True)
+    sector: Mapped[SectorEmpresa | None] = mapped_column(
+        SAEnum(SectorEmpresa, name="sector_empresa", values_callable=_valores),
+        nullable=True,
+    )
 
     productos: Mapped[list["Producto"]] = relationship(
         "Producto", back_populates="categoria"
@@ -125,6 +135,11 @@ class ClienteB2B(Base):
     email_contacto: Mapped[str] = mapped_column(String(254), nullable=False)
     telefono: Mapped[str | None] = mapped_column(String(60), nullable=True)
     direccion: Mapped[str | None] = mapped_column(Text, nullable=True)
+    sucursal: Mapped[str | None] = mapped_column(String(150), nullable=True)
+    sector: Mapped[SectorEmpresa | None] = mapped_column(
+        SAEnum(SectorEmpresa, name="sector_empresa", values_callable=_valores),
+        nullable=True,
+    )
     fecha_registro: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, server_default=func.now()
     )
@@ -142,6 +157,11 @@ class PedidoB2B(TimestampMixin, Base):
     __table_args__ = (
         Index("ix_pedido_b2b_cliente", "cliente_id"),
         Index("ix_pedido_b2b_factura_generada", "factura_generada_id"),
+        UniqueConstraint(
+            "cliente_id",
+            "clave_idempotencia",
+            name="uq_pedido_b2b_cliente_idempotencia",
+        ),
     )
 
     id: Mapped[int] = mapped_column(BIGINT, primary_key=True)
@@ -167,6 +187,7 @@ class PedidoB2B(TimestampMixin, Base):
         nullable=True,
         comment="Referencia a factura. Sin UNIQUE: un pedido por factura no era requisito.",
     )
+    clave_idempotencia: Mapped[str | None] = mapped_column(String(64), nullable=True)
 
     cliente: Mapped["ClienteB2B"] = relationship(
         "ClienteB2B", back_populates="pedidos"

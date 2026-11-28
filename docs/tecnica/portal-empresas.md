@@ -32,13 +32,15 @@ La empresa elige productos, confirma y en una sola operación se crean el pedido
 
 Se reutilizan los servicios existentes de pedidos, totales, serie, verificación, PDF y ciclo de vida. No se reimplementan esos cálculos ni cambian sus firmas públicas. Una clave de idempotencia evita facturas duplicadas por doble clic.
 
+Para descontar inventario se usa la conversión acordada: caja = cantidad × `unidades_por_caja`; unidad = cantidad; media caja = cantidad × `unidades_por_caja` / 2, con `Decimal` y sin redondear. Esta conversión es solo para existencias; los precios y totales siguen las reglas ya existentes y no dividen entre `unidades_por_caja`.
+
 ## Inventario
 
 Las existencias se guardan en unidades base por producto. Un producto sin fila de inventario no tiene control de stock: se puede comprar y no se descuenta. El ajuste lo hace el admin y registra un movimiento. La devolución de stock al anular una factura queda pendiente para la etapa D; no se toca `ciclo_vida.py` en esta etapa.
 
 ## Administrador
 
-El primer administrador se crea con la CLI del backend. La contraseña se toma de la variable de entorno `ADMIN_PASSWORD` o de `getpass`, nunca como argumento. La cuenta queda marcada para cambiar la clave al primer acceso.
+El primer administrador se crea con la CLI del backend. La contraseña se toma de la variable de entorno `ADMIN_PASSWORD` o de `getpass`, nunca como argumento. La cuenta queda marcada para cambiar la clave al primer acceso. `ADMIN_PASSWORD` debe agregarse a `.env.example`; esta etapa no edita ese archivo.
 
 ## Etapas pendientes
 
