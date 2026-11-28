@@ -26,6 +26,17 @@ from state.cliente_api import ErrorApi
 
 RUTAS_ESPERADAS = {
     "/",
+    "/login",
+    "/registro",
+    "/portal/cambiar-clave",
+    "/portal/carrito",
+    "/portal/catalogo",
+    "/portal/compra-exitosa",
+    "/portal/factura-detalle",
+    "/portal/facturas",
+    "/portal/inicio",
+    "/portal/mi-cuenta",
+    "/portal/pedidos",
     "/catalogo",
     "/carrito",
     "/configuracion",

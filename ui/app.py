@@ -10,8 +10,19 @@ from nicegui import app, ui
 from components.forms import boton_orquidea, campo_orquidea, mostrar_error
 from components.layout import datos_negocio, montar_layout
 from components.shared import estado_cargando, estado_vacio, sello_estado, tabla_orquidea
+from pages.auth import cambiar_clave as _pagina_cambiar_clave
+from pages.auth import login as _pagina_login
+from pages.auth import registro as _pagina_registro
 from pages.catalogo import carrito as _pagina_carrito
 from pages.catalogo import catalogo as _pagina_catalogo
+from pages.empresa import carrito as _pagina_portal_carrito
+from pages.empresa import catalogo as _pagina_portal_catalogo
+from pages.empresa import compra_exitosa as _pagina_portal_compra_exitosa
+from pages.empresa import factura_detalle as _pagina_portal_factura_detalle
+from pages.empresa import facturas as _pagina_portal_facturas
+from pages.empresa import inicio as _pagina_portal_inicio
+from pages.empresa import mi_cuenta as _pagina_portal_mi_cuenta
+from pages.empresa import pedidos as _pagina_portal_pedidos
 from pages.facturacion import configuracion as _pagina_configuracion
 from pages.facturacion import detalle as _pagina_detalle
 from pages.facturacion import historial as _pagina_historial
@@ -281,6 +292,7 @@ def inicio() -> None:
             ("03", "Armar un pedido", "Pedidos", "/pedidos/formulario"),
             ("04", "Ver productos", "Catálogo", "/catalogo"),
             ("05", "Comprobar una factura", "Consultar", "/verificar"),
+            ("06", "Entrar al portal de empresas", "Empresas", "/login"),
         )
         with ui.column().classes("orq-entradas w-full"):
             for numero, texto, seccion, ruta in entradas:
