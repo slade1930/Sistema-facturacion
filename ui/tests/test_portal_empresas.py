@@ -186,8 +186,8 @@ async def test_login_admin_entra_al_panel(monkeypatch):
 
     async with user_simulation(root=login.pagina_login) as user:
         await user.open("/")
-        _establecer_input(user, "Empresa", "admin_prueba")
-        _establecer_input(user, "Contraseña", "Clave123")
+        _establecer_input(user, "Empresa", "empresa-simulada")
+        _establecer_input(user, "Contraseña", "clave-simulada")
         user.find(kind=ui.button, content="Entrar").click()
         await user.should_see("Sesión iniciada.")
 

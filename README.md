@@ -52,19 +52,6 @@ Si algo falla, revisá [errores comunes](docs/despliegue/errores-comunes.md).
 3. Al guardar se inicia sesión y se abre `/portal/inicio`. En `/portal/catalogo` solo aparecen productos de tu sector.
 4. Agregá productos al carrito y confirmá la compra. El pedido y la factura se crean juntos; la factura aparece en `/portal/facturas` con detalle y descarga de PDF.
 
-## Base de datos de pruebas
-
-El repositorio incluye `backend/tests/fixtures/usuarios_prueba.sql` con una cuenta de administrador y una de empresa, listas para probar altas de categorías, productos y compras. Trae solo los hashes: las contraseñas no se versionan y se comparten por el equipo.
-
-Con los contenedores levantados y después de correr las migraciones, cargala así:
-
-```bash
-docker compose exec -T db psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" \
-  < backend/tests/fixtures/usuarios_prueba.sql
-```
-
-El script se puede repetir: no duplica filas y deja los contadores de IDs en su lugar. Si levantás la app con un volumen nuevo (`docker compose down -v`), volvé a cargarlo para recuperar las dos cuentas.
-
 ## Comandos útiles
 
 ```bash
