@@ -14,6 +14,8 @@ class Settings(BaseSettings):
     # pdf.py le agrega /api/v1/verificar/<serie>/<codigo>. En producción se
     # sobrescribe por entorno/.env con el dominio real.
     FACTURA_VERIFICACION_BASE_URL: str = "http://localhost:8000"
+    # Iteraciones de PBKDF2 para las claves del portal. Solo bajar en pruebas.
+    AUTH_PBKDF2_ITERATIONS: int = 600_000
 
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", extra="ignore")
 
