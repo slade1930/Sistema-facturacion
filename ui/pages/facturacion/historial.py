@@ -2,10 +2,14 @@ from typing import Any
 
 from nicegui import ui
 
-from components.forms import boton_orquidea, campo_orquidea, esqueleto, mensaje_error
+from components.forms import (
+    boton_orquidea,
+    campo_orquidea,
+    mostrar_error,
+    selector_orquidea,
+)
 from components.layout import montar_layout
-from components.shared import estado_vacio
-from components.tables import tabla_orquidea
+from components.shared import estado_cargando, estado_vacio, tabla_orquidea
 from state.cliente_api import ClienteApi, ErrorApi
 from state.sesion import sesion
 
@@ -35,7 +39,10 @@ SELLO_FILA = """
   <span class="orq-sello"
         :class="props.value === 'emitida' ? 'orq-sello--emitida' :
                 (props.value === 'anulada' ? 'orq-sello--anulada' : 'orq-sello--revision')">
-    {{ props.value === 'en_revision' ? 'En revisión' : props.value }}
+    {{
+      props.value === 'emitida' ? 'Emitida' :
+      (props.value === 'anulada' ? 'Anulada' : 'En revisión')
+    }}
   </span>
 </q-td>
 """
@@ -60,42 +67,40 @@ def filas(items: list[dict[str, Any]]) -> list[dict[str, Any]]:
 
 @ui.page("/facturacion/historial")
 def pagina_historial() -> None:
-    montar_layout("Historial de facturas", ruta_activa="/facturacion/historial")
+    montar_layout("Facturas emitidas", ruta_activa="/facturacion/historial")
 
     guardado = sesion.filtros_historial
-    with ui.row().classes("orq-filtros w-full items-end"):
+    with ui.row().classes("orq-filtros w-full items-end") as filtros_fila:
         cliente_input = campo_orquidea(
             "Cliente", value=guardado.get("cliente", "")
-        ).classes("w-full")
-        estado_input = ui.select(
+        ).classes("w-40")
+        estado_input = selector_orquidea(
+            "Estado",
             {
                 "": "Todos",
                 "emitida": "Emitida",
                 "anulada": "Anulada",
                 "en_revision": "En revisión",
             },
-            label="Estado",
+            buscar=False,
             value=guardado.get("estado") or "",
-        ).classes("orq-campo")
-        fecha_desde = ui.date(
-            value=guardado.get("fecha_desde"), mask="YYYY-MM-DD"
-        ).classes("orq-campo")
-        fecha_hasta = ui.date(
-            value=guardado.get("fecha_hasta"), mask="YYYY-MM-DD"
-        ).classes("orq-campo")
-        por_pagina = ui.select(
+        ).classes("w-32")
+        fecha_desde = ui.date_input(
+            "Desde", value=guardado.get("fecha_desde") or ""
+        ).props("stack-label").classes("orq-campo w-32")
+        fecha_hasta = ui.date_input(
+            "Hasta", value=guardado.get("fecha_hasta") or ""
+        ).props("stack-label").classes("orq-campo w-32")
+        por_pagina = selector_orquidea(
+            "Por página",
             [10, 20, 50],
-            label="Por página",
+            buscar=False,
             value=guardado.get("limite", 20),
-        ).classes("orq-campo")
+        ).classes("w-28")
 
-    resumen = ui.label().classes("orq-resumen")
     mensajes = ui.column()
-    cargando = ui.column().classes("w-full gap-2")
-    contenido = ui.column().classes("w-full")
-
-    tablero = tabla_orquidea(list(COLUMNAS), [], row_key="id")
-    tablero.add_slot("body-cell-estado", SELLO_FILA)
+    cargando = ui.column().classes("w-full")
+    resultado = ui.column().classes("w-full")
 
     desplazamiento = guardado.get("desplazamiento", 0)
 
@@ -109,44 +114,45 @@ def pagina_historial() -> None:
             "desplazamiento": desplazamiento,
         }
 
+    def pintar(items: list[dict[str, Any]]) -> None:
+        resultado.clear()
+        with resultado:
+            if not items:
+                estado_vacio(
+                    "Aún no hay facturas con estos filtros.",
+                    "Probá con otros criterios o emití la primera.",
+                )
+                return
+            tablero = tabla_orquidea(list(COLUMNAS), items, row_key="id")
+            tablero.add_slot("body-cell-estado", SELLO_FILA)
+
     def cargar() -> None:
         nonlocal desplazamiento
         filtros = leer_filtros()
         mensajes.clear()
-        contenido.clear()
+        resultado.clear()
         cargando.clear()
         with cargando:
-            for ancho in ("90%", "70%", "80%", "60%", "75%", "65%"):
-                esqueleto(20, ancho)
+            estado_cargando(5)
 
         try:
             datos = consultar(cliente, filtros)
         except ErrorApi as error:
             cargando.clear()
-            with mensajes:
-                mensaje_error(f"{error.code}: {error.detail}")
-                for item in error.errors:
-                    mensaje_error(str(item))
+            mostrar_error(mensajes, error)
             return
 
+        cargando.clear()
         sesion.filtros_historial = dict(filtros)
         filas_actuales = filas(datos.get("items", []))
-        tablero.rows = filas_actuales
-        tablero.update()
-        cargando.clear()
+        pintar(filas_actuales)
 
         total = datos.get("total", 0)
         desplazamiento = datos.get("desplazamiento", desplazamiento)
         limite_actual = datos.get("limite", filtros["limite"])
         hasta_numero = min(desplazamiento + len(filas_actuales), total)
         inicio = desplazamiento + 1 if filas_actuales else 0
-        resumen.text = (
-            f"Mostrando {inicio}-{hasta_numero} de {total} "
-            f"(límite {limite_actual})"
-        )
-        if not filas_actuales:
-            with contenido:
-                estado_vacio("Aún no hay facturas. Emite la primera.")
+        resumen.text = f"Mostrando {inicio}-{hasta_numero} de {total}"
 
     def buscar() -> None:
         nonlocal desplazamiento
@@ -163,9 +169,25 @@ def pagina_historial() -> None:
         desplazamiento += int(por_pagina.value or 20)
         cargar()
 
-    with ui.row().classes("orq-acciones gap-2"):
-        boton_orquidea("Buscar", buscar)
-        boton_orquidea("Anterior", anterior, variante="secundario")
-        boton_orquidea("Siguiente", siguiente, variante="secundario")
+    def limpiar() -> None:
+        nonlocal desplazamiento
+        cliente_input.value = ""
+        estado_input.value = ""
+        fecha_desde.value = ""
+        fecha_hasta.value = ""
+        por_pagina.value = 20
+        desplazamiento = 0
+        cargar()
+
+    with filtros_fila:
+        with ui.row().classes("gap-2"):
+            boton_orquidea("Buscar", buscar)
+            boton_orquidea("Limpiar", limpiar, variante="texto")
+
+    with ui.row().classes("orq-paginacion w-full"):
+        resumen = ui.label().classes("orq-resumen")
+        with ui.row().classes("orq-paginacion-grupo"):
+            boton_orquidea("Anterior", anterior, variante="secundario")
+            boton_orquidea("Siguiente", siguiente, variante="secundario")
 
     cargar()

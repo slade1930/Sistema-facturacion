@@ -2,6 +2,13 @@ from typing import Any
 
 from nicegui import ui
 
+ESTADOS = {
+    "emitida": "Emitida",
+    "anulada": "Anulada",
+    "en_revision": "En revisión",
+    "pendiente": "Pendiente",
+}
+
 
 def tabla_orquidea(
     columnas: list[dict[str, Any]],
@@ -29,7 +36,10 @@ def tabla_orquidea(
                 for columna in columnas_limp:
                     campo = str(columna.get("field", ""))
                     valor = fila.get(campo)
-                    texto = "" if valor is None else str(valor)
+                    if campo == "estado" and isinstance(valor, str):
+                        texto = ESTADOS.get(valor, valor.capitalize())
+                    else:
+                        texto = "" if valor is None else str(valor)
                     with ui.row().classes("orq-fila-dato w-full"):
                         ui.label(str(columna.get("label", ""))).classes(
                             "orq-fila-etiqueta"
