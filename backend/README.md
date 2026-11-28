@@ -52,6 +52,8 @@ Las rutas de acceso son `POST /api/v1/auth/registro`, `POST /api/v1/auth/login`,
 
 Con un token de empresa, el backend filtra catálogo por sector y clientes, pedidos, facturas, historial y PDF por la empresa del token. Un recurso ajeno da 404; un cuerpo que contradiga al token da 403. La configuración, las altas de catálogo y clientes, la facturación manual, anular, duplicar, facturar pedidos y el ML salvo recomendaciones son solo para admin o sistema.
 
+La compra del portal está en `POST /api/v1/compras` y requiere token de empresa: crea pedido y factura en una transacción, descuenta inventario y acepta `clave_idempotencia`. El inventario lo gestiona el admin en `/api/v1/admin/inventario` y `/api/v1/admin/resumen`. Producto sin fila de inventario no descuenta stock.
+
 El primer administrador se crea dentro del contenedor con:
 
 ```bash
