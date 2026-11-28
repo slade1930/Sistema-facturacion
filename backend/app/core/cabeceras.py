@@ -1,6 +1,6 @@
 """Cabeceras de seguridad y CORS restrictivo para la API.
 
-Los orígenes se leen de ``CORS_ORIGINES`` en cada petición: una lista separada
+Los orígenes se leen de ``CORS_ORIGINS`` en cada petición: una lista separada
 por comas con orígenes explícitos (esquema, host y puerto). El comodín ``*`` se
 ignora; nunca se devuelve como origen permitido.
 """
@@ -10,7 +10,7 @@ import os
 from starlette.datastructures import MutableHeaders
 from starlette.types import ASGIApp, Message, Receive, Scope, Send
 
-CORS_ORIGINES_ENV = "CORS_ORIGINES"
+CORS_ORIGINS_ENV = "CORS_ORIGINS"
 
 CABECERAS_SEGURIDAD = {
     "x-content-type-options": "nosniff",
@@ -22,7 +22,7 @@ CABECERAS_PERMITIDAS = "Authorization, Content-Type, X-API-Key"
 
 
 def _origenes_configurados() -> set[str]:
-    crudo = os.getenv(CORS_ORIGINES_ENV, "")
+    crudo = os.getenv(CORS_ORIGINS_ENV, "")
     return {
         parte.rstrip("/")
         for parte in (fragmento.strip() for fragmento in crudo.split(","))
