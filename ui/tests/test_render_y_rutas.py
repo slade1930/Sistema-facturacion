@@ -44,8 +44,12 @@ RUTAS_ESPERADAS = {
 def _cargar_app() -> object:
     """Carga `app.py` por ruta: evita confundirlo con el paquete `app` del contenedor."""
     nombre = "orquidea_app"
-    if nombre in sys.modules:
-        return sys.modules[nombre]
+    # Cada simulación reinicia los registros globales de NiceGUI: volvemos a cargar
+    # el módulo para que las rutas queden registradas también después de esas pruebas.
+    sys.modules.pop(nombre, None)
+    for modulo in list(sys.modules):
+        if modulo == "pages" or modulo.startswith("pages."):
+            sys.modules.pop(modulo, None)
     ruta = Path(__file__).resolve().parents[1] / "app.py"
     especificacion = importlib.util.spec_from_file_location(nombre, ruta)
     if especificacion is None or especificacion.loader is None:
@@ -117,7 +121,7 @@ async def test_nueva_factura_renderiza_errors_de_validacion(monkeypatch):
 
         await user.should_see("Datos inválidos.")
         await user.should_see("Cliente: falta este dato.")
-        await user.should_see("Líneas: agregá al menos una línea.")
+        await user.should_see("Líneas: agrega al menos una línea.")
 
 
 @pytest.mark.anyio
@@ -192,7 +196,7 @@ async def test_catalogo_renderiza_productos_y_precios(monkeypatch):
         await user.should_see("Producto de prueba")
         await user.should_see("SKU: PR-001")
         await user.should_see("Caja: 12.50")
-        await user.should_see("Agregar")
+        await user.should_see("Añadir al carrito")
 
 
 @pytest.mark.anyio
