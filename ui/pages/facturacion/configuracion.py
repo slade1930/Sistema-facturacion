@@ -1,9 +1,18 @@
 import asyncio
 from typing import Any
+from urllib.parse import quote
 
 from nicegui import ui
 
-from components.layout import montar_layout
+from components.forms import (
+    barra_acciones,
+    campo_orquidea,
+    mensaje_error,
+    mostrar_error,
+    seccion_formulario,
+)
+from components.layout import datos_negocio, montar_layout
+from components.shared import estado_vacio
 from state.cliente_api import ClienteApi, ErrorApi
 
 cliente = ClienteApi()
@@ -73,52 +82,83 @@ def _valor(datos: dict[str, Any], clave: str) -> str:
     return "" if valor is None else str(valor)
 
 
+def _url_logo(ruta: str) -> str | None:
+    texto = ruta.strip()
+    if not texto or ".." in texto or "\\" in texto:
+        return None
+    if texto.startswith(("http://", "https://", "//")):
+        return None
+    nombre = texto.rsplit("/", 1)[-1]
+    return f"/media/{quote(nombre)}" if nombre else None
+
+
+def _pintar_logo(contenedor: Any, ruta: str) -> None:
+    contenedor.clear()
+    with contenedor:
+        url = _url_logo(ruta)
+        if url:
+            ui.image(url).classes("orq-logo-vista w-28 h-24 object-contain")
+        else:
+            estado_vacio("Sin logo cargado")
+
+
+def _sin_evaluar(datos: dict[str, Any]) -> bool:
+    return datos.get("evaluado") is False or datos.get("modelo") is None
+
+
+def _recomendaciones_pendientes(cliente_api: ClienteApi) -> bool:
+    vistas = 0
+    for ruta in ("/api/v1/ml/pronostico", "/api/v1/ml/recomendaciones"):
+        try:
+            respuesta = cliente_api.get(ruta)
+        except Exception:
+            continue
+        if not isinstance(respuesta, dict):
+            continue
+        vistas += 1
+        if not _sin_evaluar(respuesta):
+            return False
+    return vistas > 0
+
+
 @ui.page("/configuracion")
 def pagina_configuracion() -> None:
-    montar_layout("Configuración")
+    montar_layout("Configuración del negocio", ruta_activa="/configuracion")
 
-    mensajes = ui.column()
+    mensajes = ui.column().classes("w-full gap-1")
+    ui.label("Sistema en línea").classes("orq-ayuda")
+
     try:
         configuracion = obtener_configuracion(cliente)
-    except ErrorApi as error:
+    except Exception:
         with mensajes:
-            ui.label(f"{error.code}: {error.detail}").classes("text-negative")
+            mensaje_error(
+                "No se pudieron cargar los datos del negocio. Intentá de nuevo."
+            )
         return
 
-    campos: dict[str, Any] = {}
-    with ui.card().classes("w-full gap-2"):
-        ui.label("Datos del negocio").classes("text-h6")
-        for etiqueta, clave in CAMPOS_TEXTO:
-            campos[clave] = ui.input(
-                etiqueta, value=_valor(configuracion, clave)
-            ).classes("w-full")
-        campos["mostrar_ruc"] = ui.checkbox(
-            "Mostrar RUC", value=bool(configuracion.get("mostrar_ruc", True))
-        )
-        ruta_logo = ui.label(
-            f"Logo actual: {_valor(configuracion, 'logo') or 'sin logo'}"
-        ).classes("text-caption")
-
-    def mostrar_error(error: ErrorApi) -> None:
-        mensajes.clear()
-        with mensajes:
-            ui.label(f"{error.code}: {error.detail}").classes("text-negative")
-            for item in error.errors:
-                ui.label(str(item)).classes("text-caption text-negative")
-
     def guardar() -> None:
+        mensajes.clear()
         valores = {clave: widget.value for clave, widget in campos.items()}
         try:
             datos = actualizar_configuracion(cliente, construir_cambios(valores))
         except ErrorApi as error:
-            mostrar_error(error)
+            with mensajes:
+                mensaje_error("No se pudo guardar. Revisá los datos e intentá de nuevo.")
+            mostrar_error(mensajes, error)
+            return
+        except Exception:
+            with mensajes:
+                mensaje_error("No se pudo guardar. Revisá los datos e intentá de nuevo.")
             return
         mensajes.clear()
         with mensajes:
             ui.label("Configuración guardada.").classes("text-positive")
-        ruta_logo.set_text(f"Logo actual: {_valor(datos, 'logo') or 'sin logo'}")
+        datos_negocio.cache_clear()
+        _pintar_logo(vista_logo, _valor(datos, "logo"))
 
     async def recibir_logo(event: Any) -> None:
+        mensajes.clear()
         archivo = event.file
         contenido = await archivo.read()
         try:
@@ -126,19 +166,82 @@ def pagina_configuracion() -> None:
                 subir_logo, cliente, archivo.name, contenido, archivo.content_type
             )
         except ErrorApi as error:
-            mostrar_error(error)
+            with mensajes:
+                if error.status_code == 422:
+                    mensaje_error(
+                        "Revisá el archivo: debe ser PNG, JPG o WEBP "
+                        "y pesar hasta 5 MB."
+                    )
+                else:
+                    mensaje_error("No se pudo actualizar el logo. Intentá de nuevo.")
             return
-        mensajes.clear()
+        except Exception:
+            with mensajes:
+                mensaje_error("No se pudo actualizar el logo. Intentá de nuevo.")
+            return
         with mensajes:
             ui.label("Logo actualizado.").classes("text-positive")
-        ruta_logo.set_text(f"Logo actual: {_valor(datos, 'logo') or 'sin logo'}")
+        datos_negocio.cache_clear()
+        _pintar_logo(vista_logo, _valor(datos, "logo"))
 
-    with ui.row().classes("gap-2 my-2"):
-        ui.button("Guardar", on_click=guardar)
-        ui.upload(
-            label="Subir logo (PNG, JPG o WEBP, hasta 5 MB)",
-            auto_upload=True,
-            max_file_size=5 * 1024 * 1024,
-            max_files=1,
-            on_upload=recibir_logo,
+    campos: dict[str, Any] = {}
+    etiquetas = {clave: etiqueta for etiqueta, clave in CAMPOS_TEXTO}
+
+    with seccion_formulario(
+        "Datos del negocio", "Los datos que aparecen en cada factura."
+    ):
+        for clave in (
+            "empresa_nombre",
+            "empresa_ruc",
+            "empresa_direccion",
+            "empresa_correo",
+            "empresa_telefono",
+        ):
+            campos[clave] = campo_orquidea(
+                etiquetas[clave], value=_valor(configuracion, clave)
+            ).classes("w-full")
+        campos["mostrar_ruc"] = ui.checkbox(
+            "Mostrar RUC", value=bool(configuracion.get("mostrar_ruc", True))
         )
+
+    with seccion_formulario("Apariencia", "Tonos suaves para el documento."):
+        for clave in ("color_principal", "color_barra_factura", "color_tabla"):
+            campos[clave] = campo_orquidea(
+                etiquetas[clave],
+                value=_valor(configuracion, clave),
+                placeholder="#3A0088",
+            ).classes("w-full")
+
+    with seccion_formulario(
+        "Logo", "Una imagen sencilla para identificar al negocio.", rejilla=False
+    ):
+        with ui.element("div").classes("orq-dos-columnas w-full"):
+            with ui.column().classes("w-full gap-1"):
+                ui.upload(
+                    label="Elegir imagen",
+                    auto_upload=True,
+                    max_file_size=5 * 1024 * 1024,
+                    max_files=1,
+                    on_upload=recibir_logo,
+                ).classes("w-full")
+                ui.label("PNG, JPG o WEBP · hasta 5 MB").classes("orq-ayuda")
+            vista_logo = ui.column().classes("w-full items-start")
+        _pintar_logo(vista_logo, _valor(configuracion, "logo"))
+
+    with seccion_formulario(
+        "Textos por defecto", "Notas que se agregan automáticamente."
+    ):
+        for clave in ("datos_bancarios", "notas_predeterminadas"):
+            campos[clave] = campo_orquidea(
+                etiquetas[clave], value=_valor(configuracion, clave)
+            ).classes("w-full")
+
+    if _recomendaciones_pendientes(cliente):
+        with ui.element("section").classes("orq-seccion w-full"):
+            ui.label("Recomendaciones automáticas").classes("orq-seccion-titulo")
+            ui.label(
+                "Sugerencias disponibles cuando haya suficiente historial."
+            ).classes("orq-seccion-ayuda")
+            estado_vacio("Sin evaluar")
+
+    barra_acciones("Guardar", guardar, destino_cancelar="/")
