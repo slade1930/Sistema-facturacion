@@ -81,6 +81,20 @@ Escala de espacio 4, 8, 12, 16, 24, 32, 48, 64. Radios: ticket y hoja `2px`, con
 - Barra final pegajosa con acción principal y "Cancelar". El mismo nombre de botón y el mismo aviso de éxito en todo el flujo: "Emitir factura" / "Factura emitida".
 - Nueva factura: formulario a la izquierda, ticket resumen en vivo a la derecha (subtotal, descuento, ITBMS y total animado), líneas agregables y quitables. Los cálculos siguen siendo los del backend.
 
+### Configuración del negocio
+
+- Sin fila: se abre el formulario de primera configuración, nunca un error. El primer guardado usa el `PUT` existente con `empresa_nombre` y `empresa_ruc`; después solo se envían los campos cambiados y aparece `Cambios guardados`.
+- Los errores de validación se muestran debajo del campo; el logo tiene vista previa y sus fallos se explican sin rutas ni códigos. El nombre y el RUC guardados aparecen en el inicio y en el PDF.
+- Si no hay conexión: `No pudimos conectar con el sistema. Revisa tu conexión e inténtalo de nuevo.` con botón `Reintentar`.
+
+### Carrito
+
+- `Añadir al carrito` respeta cantidad y presentación; `Media caja` solo se ofrece si el producto la permite y los inactivos no se pueden añadir. El aviso es `Producto añadido` y la cabecera muestra el contador.
+- El carrito vive en el almacenamiento de la pestaña, separado por usuario; las líneas se pueden editar y los totales pasan por esqueleto y se animan con el ticket ORQUÍDEA.
+- Estado vacío exacto: `Tu carrito está vacío. Añade productos desde el catálogo`.
+- `Confirmar pedido` crea el pedido con el `POST` existente y termina en `Pedido creado`. Los errores 422, 404, 409 y de red se explican con acciones comprensibles, sin códigos.
+- Todos los textos usan trato de tú: `Elige`, `Agrega`, `Prueba`, `Revisa`, `Intenta`.
+
 ## Tablas y listas
 
 - Tabla plana con filas lila finas, cifras a la derecha, encabezado fijo y paginación con texto claro. Sin tarjeta contenedora.
