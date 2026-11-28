@@ -1,10 +1,13 @@
 import os
 from hashlib import md5
 from pathlib import Path
+from urllib.parse import urlencode
 
 from nicegui import app, ui
 
-from components.layout import montar_layout
+from components.forms import boton_orquidea, campo_orquidea, mostrar_error
+from components.layout import datos_negocio, montar_layout
+from components.shared import estado_cargando, estado_vacio, sello_estado, tabla_orquidea
 from pages.catalogo import carrito as _pagina_carrito
 from pages.catalogo import catalogo as _pagina_catalogo
 from pages.facturacion import configuracion as _pagina_configuracion
@@ -17,7 +20,7 @@ from pages.pedidos import formulario_pedido as _pagina_formulario
 from pages.pedidos import pedido_exitoso as _pagina_exitoso
 from pages.pedidos import pedidos_pendientes as _pagina_pedidos
 from pages.verificar import verificar as _pagina_verificar
-from state.cliente_api import ClienteApi, ErrorApi
+from state.cliente_api import ClienteApi
 
 app.add_static_files(
     "/static", str(Path(__file__).parent / "static"), max_cache_age=0
@@ -88,6 +91,65 @@ ui.add_head_html(
     observador.observe(document.body, { childList: true, subtree: true });
   });
 </script>
+<script>
+  (function () {
+    function cerrarSubmenus() {
+      document.querySelectorAll('.orq-menu-boton[aria-expanded="true"]').forEach(function (boton) {
+        boton.setAttribute('aria-expanded', 'false');
+        var submenu = document.getElementById(boton.getAttribute('aria-controls'));
+        if (submenu) submenu.hidden = true;
+      });
+    }
+    function cerrarCajon() {
+      var boton = document.querySelector('.orq-hamburguesa');
+      var cajon = document.getElementById('orq-cajon');
+      if (boton) boton.setAttribute('aria-expanded', 'false');
+      if (cajon) cajon.hidden = true;
+    }
+    document.addEventListener('click', function (evento) {
+      var boton = evento.target.closest('.orq-menu-boton');
+      if (boton) {
+        var abierto = boton.getAttribute('aria-expanded') === 'true';
+        cerrarSubmenus();
+        if (!abierto) {
+          var submenu = document.getElementById(boton.getAttribute('aria-controls'));
+          boton.setAttribute('aria-expanded', 'true');
+          if (submenu) submenu.hidden = false;
+        }
+        evento.stopPropagation();
+        return;
+      }
+      var hamburguesa = evento.target.closest('.orq-hamburguesa');
+      if (hamburguesa) {
+        var abiertoCajon = hamburguesa.getAttribute('aria-expanded') === 'true';
+        cerrarSubmenus();
+        var cajon = document.getElementById('orq-cajon');
+        hamburguesa.setAttribute('aria-expanded', abiertoCajon ? 'false' : 'true');
+        if (cajon) cajon.hidden = abiertoCajon;
+        evento.stopPropagation();
+        return;
+      }
+      if (evento.target.closest('#orq-cajon a')) cerrarCajon();
+      if (!evento.target.closest('.orq-submenu')) cerrarSubmenus();
+    });
+    document.addEventListener('keydown', function (evento) {
+      if (evento.key === 'Escape') {
+        cerrarSubmenus();
+        cerrarCajon();
+        return;
+      }
+      if (evento.key === 'ArrowDown' && evento.target.matches('.orq-menu-boton')) {
+        var submenu = document.getElementById(evento.target.getAttribute('aria-controls'));
+        if (submenu && submenu.hidden) evento.target.click();
+        if (submenu) {
+          var primerEnlace = submenu.querySelector('a');
+          if (primerEnlace) primerEnlace.focus();
+        }
+        evento.preventDefault();
+      }
+    });
+  })();
+</script>
 """,
     shared=True,
 )
@@ -95,40 +157,214 @@ ui.add_head_html(
 cliente = ClienteApi()
 
 
-def probar_salud() -> None:
+def _obtener_historial(limite: int = 5) -> list[dict]:
+    respuesta = cliente.get("/api/v1/historial", params={"limite": limite})
+    return list(respuesta.get("items") or [])
+
+
+def _obtener_pedidos_por_facturar() -> list[dict] | None:
     try:
-        respuesta = cliente.get("/health")
-        ui.notify(
-            f"Backend disponible: {respuesta.get('status', 'sin estado')}.",
-            type="positive",
+        return list(
+            cliente.get("/api/v1/pedidos/por-facturar", params={"limite": 500})
         )
-    except ErrorApi as error:
-        ui.notify(f"No se pudo consultar /health: {error.detail}.", type="negative")
+    except Exception:
+        return None
+
+
+def _ticket_ultima(factura: dict) -> None:
+    with ui.element("section").classes("orq-ticket w-full"):
+        with ui.row().classes("orq-ticket-cabecera w-full"):
+            with ui.column().classes("gap-0"):
+                ui.label(str(factura.get("numero_serie") or "")).classes(
+                    "orq-ticket-folio"
+                )
+                ui.label(f"Fecha {factura.get('fecha') or ''}").classes(
+                    "orq-ticket-fecha"
+                )
+            sello_estado(str(factura.get("estado") or ""))
+        with ui.column().classes("orq-ticket-datos w-full"):
+            with ui.element("div").classes("orq-dato"):
+                ui.label("Cliente").classes("orq-dato-etiqueta")
+                ui.label(str(factura.get("cliente_nombre") or "")).classes(
+                    "orq-dato-valor"
+                )
+            with ui.element("div").classes("orq-dato"):
+                ui.label("RUC").classes("orq-dato-etiqueta")
+                ui.label(str(factura.get("cliente_ruc") or "")).classes(
+                    "orq-dato-valor"
+                )
+        with ui.column().classes("orq-ticket-totales"):
+            ui.html(
+                '<div class="orq-dato"><span class="orq-dato-etiqueta">Total</span>'
+                '<span class="orq-total" data-valor="'
+                + str(factura.get("total") or "0.00")
+                + '">'
+                + str(factura.get("total") or "0.00")
+                + "</span></div>"
+            )
+        with ui.row().classes("orq-ticket-acciones w-full"):
+            ui.link(
+                "Ver factura",
+                f"/facturacion/detalle?factura_id={factura.get('id') or ''}",
+            ).classes("orq-boton orq-boton--texto")
 
 
 @ui.page("/")
 def inicio() -> None:
     montar_layout()
-    with ui.column().classes("w-full gap-4"):
-        with ui.row().classes("orq-acciones gap-2"):
-            ui.button(
-                "API docs",
-                on_click=lambda: ui.navigate.to("http://localhost:8000/docs", new_tab=True),
-            ).classes("orq-boton orq-boton--secundario")
-        ui.label("Facturación").classes("text-h6")
-        ui.label("Interfaz NiceGUI conectada al backend por httpx.").classes(
-            "orq-resumen"
+
+    with ui.element("section").classes("orq-hero w-full"):
+        ui.label("Tu facturación, en orden").classes("orq-hero-titulo")
+        ui.label(
+            "Elegí una acción, revisá lo emitido o comprobá una factura."
+        ).classes("orq-hero-bajada")
+        with ui.column().classes("orq-hero-ultima w-full") as ultima:
+            estado_cargando(3)
+
+    try:
+        facturas = _obtener_historial(5)
+    except Exception as error:
+        ultima.clear()
+        mostrar_error(ultima, error)
+        facturas = []
+    else:
+        ultima.clear()
+        with ultima:
+            if facturas:
+                ui.label("Última factura emitida").classes("orq-bloque-ayuda")
+                _ticket_ultima(facturas[0])
+            else:
+                estado_vacio(
+                    "Todavía no emitiste facturas.",
+                    "Cuando emitas una, aparece acá.",
+                )
+
+    with ui.element("section").classes("orq-bloque w-full"):
+        ui.label("¿Qué quieres hacer?").classes("orq-bloque-titulo")
+        ui.label("Entradas directas a las tareas del negocio.").classes(
+            "orq-bloque-ayuda"
         )
-        with ui.element("section").classes("orq-ticket w-full max-w-3xl"):
-            ui.label("Backend").classes("orq-dato-etiqueta")
-            ui.label(cliente.base_url).classes("orq-dato-valor")
-            ui.button("Probar /health", on_click=probar_salud).classes(
-                "orq-boton orq-boton--primario mt-4"
+        entradas = (
+            ("01", "Emitir una factura", "Facturación", "/facturacion/nueva"),
+            ("02", "Revisar las emitidas", "Facturación", "/facturacion/historial"),
+            ("03", "Armar un pedido", "Pedidos", "/pedidos/formulario"),
+            ("04", "Ver productos", "Catálogo", "/catalogo"),
+            ("05", "Comprobar una factura", "Consultar", "/verificar"),
+        )
+        with ui.column().classes("orq-entradas w-full"):
+            for numero, texto, seccion, ruta in entradas:
+                with ui.link("", ruta).classes("orq-entrada") as enlace:
+                    ui.label(numero).classes("orq-entrada-numero")
+                    ui.label(texto).classes("orq-entrada-titulo")
+                    ui.label(seccion).classes("orq-entrada-seccion")
+                enlace.props(f'aria-label="{texto}"')
+
+    with ui.element("section").classes("orq-bloque w-full"):
+        ui.label("Cómo funciona").classes("orq-bloque-titulo")
+        ui.label("Del pedido a la verificación, sin pasos ocultos.").classes(
+            "orq-bloque-ayuda"
+        )
+        pasos = (
+            ("01", "Pedido", "Elegí los productos y confirmá la entrega."),
+            ("02", "Factura", "Emití el talonario con cliente, líneas e ITBMS."),
+            ("03", "QR", "La factura queda lista para compartir con su código."),
+            ("04", "Verificación", "Cualquiera puede comprobar los datos con serie y código."),
+        )
+        with ui.row().classes("orq-pasos w-full"):
+            for numero, titulo, texto in pasos:
+                with ui.column().classes("orq-paso"):
+                    ui.label(numero).classes("orq-paso-numero")
+                    ui.label(titulo).classes("orq-paso-titulo")
+                    ui.label(texto).classes("orq-paso-texto")
+
+    with ui.element("section").classes("orq-bloque w-full"):
+        ui.label("Actividad reciente").classes("orq-bloque-titulo")
+        pedidos = _obtener_pedidos_por_facturar()
+        if pedidos is not None:
+            ui.label(f"Pedidos por facturar: {len(pedidos)}").classes(
+                "orq-aviso-pedidos"
             )
+        with ui.column().classes("w-full") as actividad:
+            estado_cargando(5)
+        actividad.clear()
+        with actividad:
+            if facturas:
+                columnas = [
+                    {
+                        "name": "numero_serie",
+                        "label": "Número",
+                        "field": "numero_serie",
+                        "align": "left",
+                    },
+                    {"name": "fecha", "label": "Fecha", "field": "fecha", "align": "left"},
+                    {
+                        "name": "cliente_nombre",
+                        "label": "Cliente",
+                        "field": "cliente_nombre",
+                        "align": "left",
+                    },
+                    {
+                        "name": "total",
+                        "label": "Total",
+                        "field": "total",
+                        "align": "right",
+                    },
+                    {
+                        "name": "estado",
+                        "label": "Estado",
+                        "field": "estado",
+                        "align": "left",
+                    },
+                ]
+                tabla_orquidea(columnas, facturas, row_key="numero_serie")
+            else:
+                estado_vacio("No hay actividad para mostrar.")
+
+    with ui.element("section").classes("orq-bloque w-full"):
+        ui.label("Verificación pública").classes("orq-bloque-titulo")
+        ui.label(
+            "Ingresá los datos impresos en la factura para comprobarla."
+        ).classes("orq-bloque-ayuda")
+        with ui.element("div").classes("orq-verificar-bloque"):
+            with ui.column().classes("orq-verificar-campos w-full"):
+                serie = campo_orquidea(
+                    "Número de serie", placeholder="FAC-2026-0001"
+                )
+                codigo = campo_orquidea(
+                    "Código de verificación", placeholder="El que aparece en la factura"
+                )
+
+            def verificar_desde_inicio() -> None:
+                if not str(serie.value or "").strip() or not str(
+                    codigo.value or ""
+                ).strip():
+                    ui.notify(
+                        "Ingresá el número de serie y el código de verificación.",
+                        type="warning",
+                    )
+                    return
+                consulta = urlencode(
+                    {
+                        "numero_serie": str(serie.value).strip(),
+                        "codigo": str(codigo.value).strip(),
+                    }
+                )
+                ui.navigate.to(f"/verificar?{consulta}")
+
+            boton_orquidea("Verificar", verificar_desde_inicio)
+
+    negocio = datos_negocio()
+    partes = []
+    if negocio.get("nombre"):
+        partes.append(negocio["nombre"])
+    if negocio.get("ruc"):
+        partes.append(f"RUC {negocio['ruc']}")
+    if partes:
+        ui.label(" · ".join(partes)).classes("orq-pie")
 
 
 ui.run(
     host="0.0.0.0",
     port=int(os.getenv("UI_PORT", "8080")),
-    title="Sistema de facturación",
+    title="Orquídea",
 )
