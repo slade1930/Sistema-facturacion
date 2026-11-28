@@ -11,6 +11,7 @@ from components.forms import (
     campo_orquidea,
     mensaje_error,
     mostrar_error,
+    notificar,
     seccion_formulario,
     texto_amigable,
 )
@@ -52,6 +53,8 @@ MENSAJE_CONEXION = (
 )
 MENSAJE_CARGA = "No pudimos cargar los datos del negocio."
 MENSAJE_GUARDADO = "Cambios guardados"
+MENSAJE_SIN_CAMBIOS = "No hay cambios para guardar."
+MENSAJE_REVISAR = "Revisa los datos marcados."
 PRIMERA_CONFIGURACION = (
     "Aún no configuraste tu negocio. Completa los datos para empezar."
 )
@@ -199,6 +202,7 @@ def pagina_configuracion() -> None:
         with contenedor:
             mensaje_error(texto)
             boton_orquidea("Reintentar", accion, variante="secundario")
+        notificar(texto, tipo="negative")
 
     def limpiar_errores_campos() -> None:
         for contenedor in errores_campos.values():
@@ -222,6 +226,7 @@ def pagina_configuracion() -> None:
         mensajes.clear()
         with mensajes:
             ui.label(MENSAJE_GUARDADO).classes("text-positive")
+        notificar(MENSAJE_GUARDADO)
         datos_negocio.cache_clear()
         _pintar_logo(vista_logo, _valor(datos, "logo"))
 
@@ -235,7 +240,8 @@ def pagina_configuracion() -> None:
         if not cambios:
             if notificar_cambio:
                 with mensajes:
-                    ui.label(MENSAJE_GUARDADO).classes("text-positive")
+                    ui.label(MENSAJE_SIN_CAMBIOS).classes("orq-ayuda")
+                notificar(MENSAJE_SIN_CAMBIOS, tipo="info")
             return None
         try:
             datos = actualizar_configuracion(cliente, cambios)
@@ -243,6 +249,10 @@ def pagina_configuracion() -> None:
             with mensajes:
                 mensaje_error(error.detail)
             mostrar_errores_campos(error)
+            if _errores_por_campo(error):
+                notificar(MENSAJE_REVISAR, tipo="warning")
+            else:
+                notificar(error.detail, tipo="negative")
             return None
         except Exception as error:
             if es_error_de_conexion(error):
@@ -271,6 +281,7 @@ def pagina_configuracion() -> None:
             )
         except ErrorApi as error:
             mostrar_error(mensajes, error)
+            notificar(error.detail, tipo="negative")
             return
         except Exception as error:
             if es_error_de_conexion(error):
