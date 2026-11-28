@@ -138,6 +138,83 @@ async def test_orq_config_guardado_muestra_aviso_y_envia_cambios(monkeypatch):
 
 
 @pytest.mark.anyio
+async def test_orq_config_guardado_avisa_aunque_el_boton_este_abajo(monkeypatch):
+    actual = {"empresa_nombre": "Taller Orquídea", "empresa_ruc": "RUC-1"}
+    avisos = []
+
+    monkeypatch.setattr(configuracion, "obtener_configuracion", lambda cliente: actual)
+    monkeypatch.setattr(
+        configuracion,
+        "actualizar_configuracion",
+        lambda cliente, cambios: {**actual, **cambios},
+    )
+    monkeypatch.setattr(configuracion, "_recomendaciones_pendientes", lambda cliente: False)
+    monkeypatch.setattr(
+        configuracion, "notificar", lambda texto, tipo="positive": avisos.append((texto, tipo))
+    )
+
+    async with user_simulation(root=configuracion.pagina_configuracion) as user:
+        await user.open("/")
+        escribir_campo(user, "Dirección", "Calle 2")
+        user.find(kind=ui.button, content="Guardar").click()
+        await user.should_see("Cambios guardados")
+
+    assert ("Cambios guardados", "positive") in avisos
+
+
+@pytest.mark.anyio
+async def test_orq_config_guardar_sin_cambios_tambien_avisa(monkeypatch):
+    actual = {
+        "empresa_nombre": "Taller Orquídea",
+        "empresa_ruc": "RUC-1",
+        "mostrar_ruc": True,
+    }
+    avisos = []
+
+    monkeypatch.setattr(configuracion, "obtener_configuracion", lambda cliente: actual)
+    monkeypatch.setattr(configuracion, "_recomendaciones_pendientes", lambda cliente: False)
+    monkeypatch.setattr(
+        configuracion, "notificar", lambda texto, tipo="positive": avisos.append((texto, tipo))
+    )
+
+    async with user_simulation(root=configuracion.pagina_configuracion) as user:
+        await user.open("/")
+        user.find(kind=ui.button, content="Guardar").click()
+        await user.should_see("No hay cambios para guardar.")
+
+    assert ("No hay cambios para guardar.", "info") in avisos
+
+
+@pytest.mark.anyio
+async def test_orq_config_error_de_campo_avisa_y_marca_el_campo(monkeypatch):
+    actual = {"empresa_nombre": "Taller Orquídea", "empresa_ruc": "RUC-1"}
+    avisos = []
+
+    def rechazar(cliente_api, cambios):
+        raise ErrorApi(
+            422,
+            "Datos inválidos.",
+            "VALIDATION_ERROR",
+            [{"loc": ["body", "empresa_ruc"], "msg": "Field required"}],
+        )
+
+    monkeypatch.setattr(configuracion, "obtener_configuracion", lambda cliente: actual)
+    monkeypatch.setattr(configuracion, "actualizar_configuracion", rechazar)
+    monkeypatch.setattr(configuracion, "_recomendaciones_pendientes", lambda cliente: False)
+    monkeypatch.setattr(
+        configuracion, "notificar", lambda texto, tipo="positive": avisos.append((texto, tipo))
+    )
+
+    async with user_simulation(root=configuracion.pagina_configuracion) as user:
+        await user.open("/")
+        escribir_campo(user, "RUC", "")
+        user.find(kind=ui.button, content="Guardar").click()
+        await user.should_see("RUC: falta este dato.")
+
+    assert ("Revisa los datos marcados.", "warning") in avisos
+
+
+@pytest.mark.anyio
 async def test_orq_config_error_de_red_muestra_mensaje_y_reintento(monkeypatch):
     def sin_red(cliente_api):
         raise httpx.ConnectError("sin red")
