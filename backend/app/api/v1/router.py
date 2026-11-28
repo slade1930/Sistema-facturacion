@@ -1,6 +1,11 @@
 from fastapi import APIRouter
 
+from app.api.v1.endpoints.admin import auditoria as auditoria_admin
+from app.api.v1.endpoints.admin import catalogo as catalogo_admin
+from app.api.v1.endpoints.admin import empresas as empresas_admin
 from app.api.v1.endpoints.admin import inventario as inventario_admin
+from app.api.v1.endpoints.admin import panel as panel_admin
+from app.api.v1.endpoints.admin import pedidos as pedidos_admin
 from app.api.v1.endpoints.admin import resumen as resumen_admin
 from app.api.v1.endpoints.auth import router as auth_router
 from app.api.v1.endpoints.empresa import compras as compras_empresa
@@ -24,6 +29,11 @@ router = APIRouter()
 router.include_router(auth_router)
 router.include_router(compras_empresa.router)
 router.include_router(resumen_admin.router)
+router.include_router(panel_admin.router)
+router.include_router(empresas_admin.router)
+router.include_router(catalogo_admin.router)
+router.include_router(pedidos_admin.router)
+router.include_router(auditoria_admin.router)
 router.include_router(inventario_admin.router)
 router.include_router(facturas.router)
 router.include_router(historial.router)
