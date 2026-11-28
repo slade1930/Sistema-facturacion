@@ -9,7 +9,8 @@ from app.models.facturacion import Factura, LineaFactura
 from app.repositories.facturacion import ContadorSerieRepository, FacturaRepository
 from app.schemas.facturacion import FacturaCreate, FacturaRead, LineaFacturaCreate
 from app.services.aislamiento import factura_visible, vincular_factura_a_cliente
-from app.services.ciclo_vida import duplicar_factura
+from app.services.ciclo_vida import anular_factura, duplicar_factura
+from app.services.inventario import devolver_por_factura
 from app.services.totales import aplicar_totales
 from app.services.verificacion import generar_codigo_verificacion
 
@@ -109,11 +110,16 @@ def obtener_factura(
 @router.post(
     "/{factura_id}/anular",
     response_model=FacturaRead,
-    dependencies=[Depends(requiere_admin)],
 )
-def anular_factura(factura_id: int, db: Session = Depends(get_db)):
+def anular_factura_endpoint(
+    factura_id: int,
+    db: Session = Depends(get_db),
+    actor: Actor = Depends(requiere_admin),
+):
     factura = _obtener_o_404(db, factura_id)
-    FacturaRepository.anular(db, factura, commit=False)
+    anular_factura(factura)
+    db.flush()
+    devolver_por_factura(db, factura.id, actor.cuenta_id)
     db.commit()
     db.refresh(factura)
     return factura

@@ -79,7 +79,8 @@ def evaluar_al_crear(factura: Factura, *, serie_repetida: bool = False) -> bool:
             factura, serie_repetida=serie_repetida
         ) is not None
     except Exception:
-        logger.exception("No se pudo evaluar anomalías al crear la factura.")
+        # Sin trazas: un traceback puede arrastrar SQL o datos de la petición.
+        logger.warning("No se pudo evaluar anomalías al crear la factura.")
         return False
 
 

@@ -5,6 +5,7 @@ from fastapi.staticfiles import StaticFiles
 from sqlalchemy import text
 
 from app.api.v1.router import router as api_v1_router
+from app.core.cabeceras import CabecerasSeguridadMiddleware
 from app.core.config import validar_api_key, validar_factura_hmac_key
 from app.core.errors import registrar_manejadores
 from app.core.logging import configurar_logging
@@ -17,6 +18,7 @@ validar_api_key()
 validar_factura_hmac_key()
 
 app = FastAPI(title="Sistema de facturación")
+app.add_middleware(CabecerasSeguridadMiddleware)
 # Errores con un solo formato: {"detail": "...", "code": "..."}
 registrar_manejadores(app)
 app.include_router(api_v1_router, prefix="/api/v1")
