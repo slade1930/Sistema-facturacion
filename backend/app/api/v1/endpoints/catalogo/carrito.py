@@ -31,7 +31,7 @@ def _linea_para_totales(
         "cantidad": item.cantidad,
         "precio_unitario": precio,
         "precio_unidad": None if (es_caja or es_media_caja) else producto.precio_unidad,
-        "descuento_pct": Decimal("0.00"),
+        "descuento_pct": Decimal(str(getattr(producto, "descuento_pct", 0) or 0)),
         "gravada": producto.aplica_itbms,
         "cobrar_por": "caja" if es_caja else "unidad",
     }

@@ -23,7 +23,7 @@ from components.forms import (
     numero_orquidea,
     selector_orquidea,
 )
-from components.shared import estado_cargando
+from components.shared import en_oferta, estado_cargando, precio_con_descuento
 from state.cliente_api import ErrorApi
 
 LIMITE = 100
@@ -33,6 +33,26 @@ COLUMNAS_PRODUCTOS = (
     {"name": "sku", "label": "SKU", "field": "sku", "align": "left"},
     {"name": "categoria", "label": "Categoría", "field": "categoria_nombre", "align": "left"},
     {"name": "sector", "label": "Sector", "field": "sector", "align": "left"},
+    {"name": "marca", "label": "Marca", "field": "marca", "align": "left"},
+    {
+        "name": "presentacion",
+        "label": "Presentación",
+        "field": "presentacion",
+        "align": "left",
+    },
+    {"name": "oferta", "label": "Oferta", "field": "oferta", "align": "left"},
+    {
+        "name": "precio_caja_oferta",
+        "label": "Precio caja oferta",
+        "field": "precio_caja_oferta",
+        "align": "right",
+    },
+    {
+        "name": "precio_unidad_oferta",
+        "label": "Precio unidad oferta",
+        "field": "precio_unidad_oferta",
+        "align": "right",
+    },
     {
         "name": "precio_caja",
         "label": "Precio caja",
@@ -123,6 +143,18 @@ def _filas_productos(items: list[dict[str, Any]]) -> list[dict[str, Any]]:
     for producto in items:
         fila = dict(producto)
         fila["sector"] = _sector(producto.get("sector"))
+        fila["marca"] = str(producto.get("marca") or "").strip() or "—"
+        fila["presentacion"] = str(producto.get("presentacion") or "").strip() or "—"
+        descuento = producto.get("descuento_pct") or 0
+        fila["oferta"] = (
+            f"{descuento} %" if en_oferta(producto) else "—"
+        )
+        fila["precio_caja_oferta"] = precio_con_descuento(
+            producto.get("precio_caja"), descuento
+        )
+        fila["precio_unidad_oferta"] = precio_con_descuento(
+            producto.get("precio_unidad"), descuento
+        )
         fila["estado"] = "Activo" if producto.get("estado_activo") else "Inactivo"
         filas.append(fila)
     return filas
@@ -173,6 +205,12 @@ async def pagina_catalogo_admin() -> None:
             codigo = campo_orquidea("Código de barras")
             descripcion = campo_orquidea("Descripción corta")
             unidades = numero_orquidea("Unidades por caja", value=1)
+        with ui.row().classes("w-full items-end gap-3"):
+            marca = campo_orquidea("Marca")
+            presentacion = campo_orquidea("Presentación")
+            descuento = numero_orquidea(
+                "Descuento %", value=0, min=0, max=90, precision=2
+            )
         with ui.row().classes("orq-admin-acciones w-full"):
             boton_orquidea("Guardar producto", lambda: guardar())
             boton_orquidea(
@@ -236,11 +274,12 @@ async def pagina_catalogo_admin() -> None:
 
     def limpiar_formulario() -> None:
         editando["id"] = None
-        for campo in (nombre, sku, codigo, descripcion):
+        for campo in (nombre, sku, codigo, descripcion, marca, presentacion):
             campo.value = ""
         for campo in (precio_caja, precio_unidad, precio_media, existencias):
             campo.value = None
         unidades.value = 1
+        descuento.value = 0
         categoria_form.value = None
 
     def editar(producto_id: Any) -> None:
@@ -272,6 +311,9 @@ async def pagina_catalogo_admin() -> None:
         sku.value = str(producto.get("sku") or "")
         codigo.value = str(producto.get("codigo_barras") or "")
         descripcion.value = str(producto.get("descripcion_corta") or "")
+        marca.value = str(producto.get("marca") or "")
+        presentacion.value = str(producto.get("presentacion") or "")
+        descuento.value = numero(producto.get("descuento_pct"))
         precio_caja.value = numero(producto.get("precio_caja"))
         precio_unidad.value = numero(producto.get("precio_unidad"))
         precio_media.value = (
@@ -297,6 +339,9 @@ async def pagina_catalogo_admin() -> None:
             "sku": str(sku.value),
             "codigo_barras": str(codigo.value or "") or None,
             "descripcion_corta": str(descripcion.value or "") or None,
+            "marca": str(marca.value or "").strip() or None,
+            "presentacion": str(presentacion.value or "").strip() or None,
+            "descuento_pct": _decimal(descuento.value),
             "precio_caja": _decimal(precio_caja.value),
             "precio_unidad": _decimal(precio_unidad.value),
             "precio_media_caja": (

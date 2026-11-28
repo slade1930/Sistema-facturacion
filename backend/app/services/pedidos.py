@@ -80,7 +80,12 @@ class LineaPedido:
 
     @property
     def subtotal(self) -> Decimal:
-        return subtotal_linea(self.precio, self.cantidad)
+        bruto = subtotal_linea(self.precio, self.cantidad)
+        if self.descuento_pct == 0:
+            return bruto
+        return redondear(
+            bruto * (Decimal("100") - self.descuento_pct) / Decimal("100")
+        )
 
 
 @dataclass(frozen=True)
@@ -200,6 +205,7 @@ def linea_pedido_desde_modelo(
             else producto.precio_unidad
         ),
         gravada=producto.aplica_itbms,
+        descuento_pct=Decimal(str(getattr(producto, "descuento_pct", 0) or 0)),
         producto_id=producto.id,
     )
 
@@ -387,7 +393,7 @@ def facturar_pedido_b2b(
                 if es_media_caja or es_caja
                 else linea_convertida.precio_unidad
             ),
-            descuento_pct=Decimal("0.00"),
+            descuento_pct=linea_convertida.descuento_pct,
             gravada=linea_convertida.gravada,
             unidades_por_caja=linea_convertida.unidades_por_caja,
             cobrar_por=cobrar_por,

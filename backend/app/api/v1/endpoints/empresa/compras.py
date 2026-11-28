@@ -101,6 +101,9 @@ def comprar(
                     else None
                 ),
                 gravada=producto.aplica_itbms,
+                descuento_pct=Decimal(
+                    str(getattr(producto, "descuento_pct", 0) or 0)
+                ),
                 producto_id=producto.id,
             )
         )

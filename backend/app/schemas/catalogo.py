@@ -9,6 +9,9 @@ from app.models.catalogo import SectorEmpresa
 # Dinero: NUMERIC(14,2) en la base. Siempre Decimal, nunca float.
 Dinero = Annotated[Decimal, Field(ge=0, max_digits=14, decimal_places=2)]
 DineroCorto = Annotated[Decimal, Field(ge=0, max_digits=10, decimal_places=2)]
+Descuento = Annotated[
+    Decimal, Field(ge=0, le=90, max_digits=5, decimal_places=2)
+]
 
 
 def _validar_imagen(valor: str | None) -> str | None:
@@ -51,6 +54,8 @@ class ProductoBase(BaseModel):
     sku: str = Field(min_length=1, max_length=50)
     codigo_barras: str | None = Field(default=None, max_length=50)
     descripcion_corta: str | None = Field(default=None, max_length=500)
+    marca: str | None = Field(default=None, max_length=100)
+    presentacion: str | None = Field(default=None, max_length=50)
     imagen: str | None = Field(default=None, max_length=100)
     precio_caja: Dinero
     precio_media_caja: Dinero | None = None
@@ -58,6 +63,7 @@ class ProductoBase(BaseModel):
     precio_unidad: Dinero
     precio_consumidor: DineroCorto | None = None
     unidades_por_caja: int = Field(default=1, ge=1)
+    descuento_pct: Descuento = Decimal("0.00")
     aplica_itbms: bool = True  # ITBMS 7 % solo si es gravado
     estado_activo: bool = True
 
@@ -77,6 +83,8 @@ class ProductoUpdate(BaseModel):
     sku: str | None = Field(default=None, min_length=1, max_length=50)
     codigo_barras: str | None = Field(default=None, max_length=50)
     descripcion_corta: str | None = Field(default=None, max_length=500)
+    marca: str | None = Field(default=None, max_length=100)
+    presentacion: str | None = Field(default=None, max_length=50)
     imagen: str | None = Field(default=None, max_length=100)
     precio_caja: Dinero | None = None
     precio_media_caja: Dinero | None = None
@@ -84,6 +92,7 @@ class ProductoUpdate(BaseModel):
     precio_unidad: Dinero | None = None
     precio_consumidor: DineroCorto | None = None
     unidades_por_caja: int | None = Field(default=None, ge=1)
+    descuento_pct: Descuento | None = None
     aplica_itbms: bool | None = None
     estado_activo: bool | None = None
 
