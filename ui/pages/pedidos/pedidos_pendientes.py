@@ -2,7 +2,7 @@ from typing import Any
 
 from nicegui import ui
 
-from components.admin.seguridad import exigir_admin
+from components.admin.seguridad import conectar_sesion, exigir_admin
 from components.forms import boton_enlace, boton_orquidea, mostrar_error
 from components.layout import montar_layout
 from components.shared import estado_vacio, sello_estado, total_animado
@@ -47,7 +47,8 @@ def calcular_paginacion(
 
 
 @ui.page("/pedidos/por-facturar")
-def pagina_pedidos_pendientes(limite: int = LIMITE_MAXIMO) -> None:
+async def pagina_pedidos_pendientes(limite: int = LIMITE_MAXIMO) -> None:
+    await conectar_sesion()
     if not exigir_admin():
         return
     montar_layout("Pedidos por facturar", ruta_activa="/pedidos/por-facturar")

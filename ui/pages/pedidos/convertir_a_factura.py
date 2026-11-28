@@ -2,7 +2,7 @@ from typing import Any
 
 from nicegui import ui
 
-from components.admin.seguridad import exigir_admin
+from components.admin.seguridad import conectar_sesion, exigir_admin
 from components.forms import boton_enlace, boton_orquidea, mostrar_error, notificar
 from components.layout import montar_layout
 from components.shared import (
@@ -38,7 +38,8 @@ def _valor(datos: dict[str, Any], clave: str) -> str:
 
 
 @ui.page("/pedidos/convertir-a-factura")
-def pagina_convertir(pedido_id: int | None = None) -> None:
+async def pagina_convertir(pedido_id: int | None = None) -> None:
+    await conectar_sesion()
     if not exigir_admin():
         return
     titulo = (

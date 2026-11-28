@@ -4,6 +4,7 @@ from datetime import date, datetime, timedelta, timezone
 from decimal import Decimal
 
 import pytest
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app.models.catalogo import (
@@ -278,9 +279,29 @@ def test_admin_panel_resumen_con_datos_conocidos(client, db: Session):
     respuesta = client.get("/api/v1/admin/panel/resumen")
     assert respuesta.status_code == 200, respuesta.text
     datos = respuesta.json()
-    assert datos["empresas_total"] == 2
-    assert datos["empresas_activas"] == 2
-    assert datos["empresas_en_linea"] == 1
+    # La base de pruebas puede tener otras cuentas: se comparan agregados reales.
+    total_empresas = db.scalar(
+        select(func.count(Cuenta.id)).where(Cuenta.rol == RolCuenta.EMPRESA)
+    )
+    empresas_activas = db.scalar(
+        select(func.count(Cuenta.id)).where(
+            Cuenta.rol == RolCuenta.EMPRESA, Cuenta.activo.is_(True)
+        )
+    )
+    ahora = datetime.now(timezone.utc)
+    empresas_en_linea = db.scalar(
+        select(func.count(func.distinct(Sesion.cuenta_id)))
+        .join(Cuenta, Cuenta.id == Sesion.cuenta_id)
+        .where(
+            Cuenta.rol == RolCuenta.EMPRESA,
+            Sesion.revocada.is_(False),
+            Sesion.expira_en > ahora,
+            Sesion.ultima_actividad >= ahora - timedelta(minutes=15),
+        )
+    )
+    assert datos["empresas_total"] == int(total_empresas or 0)
+    assert datos["empresas_activas"] == int(empresas_activas or 0)
+    assert datos["empresas_en_linea"] == int(empresas_en_linea or 0)
     assert datos["pedidos_por_facturar"] == 3
     assert datos["facturas_en_revision"] == 2
     assert datos["productos_bajo_minimo"] == 1

@@ -1,4 +1,4 @@
-"""Inicio de sesión de empresa en el portal de clientes; etapa B."""
+"""Inicio de sesión del negocio y de las cuentas de empresa; etapa B."""
 
 import asyncio
 from typing import Any
@@ -8,6 +8,7 @@ from nicegui import ui
 from components.auth import campos_login
 from components.forms import boton_orquidea, mostrar_error, seccion_formulario
 from components.forms import boton_enlace
+from components.sesion import cabecera_publica, destino_sesion
 from state import auth
 from state.cliente_api import ClienteApi, ErrorApi
 
@@ -20,13 +21,7 @@ def enviar_login(empresa: str, contrasena: str) -> dict[str, Any]:
 
 
 def cabecera_auth() -> None:
-    ui.html(
-        '<header class="orq-header orq-header-fijo w-full"><div class="orq-header-inner">'
-        '<a class="orq-marca" href="/"><span class="orq-nombre-marca">Orquídea</span>'
-        "</a></div></header>",
-        sanitize=False,
-        tag="header",
-    ).classes("orq-header orq-header-fijo w-full")
+    cabecera_publica()
 
 
 @ui.page("/login")
@@ -63,12 +58,7 @@ def pagina_login() -> None:
             return
         auth.guardar_sesion(respuesta)
         ui.notify("Sesión iniciada.")
-        destino = (
-            "/portal/cambiar-clave"
-            if respuesta.get("debe_cambiar_clave")
-            else "/portal/inicio"
-        )
-        ui.navigate.to(destino)
+        ui.navigate.to(destino_sesion(respuesta))
 
     with ui.row().classes("orq-barra-acciones w-full"):
         boton_orquidea("Entrar", entrar)

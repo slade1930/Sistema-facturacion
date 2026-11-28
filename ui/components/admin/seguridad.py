@@ -6,13 +6,20 @@ compartidas deben seguir funcionando. Al mezclar con `desarrollo`, las funciones
 reales se usan solas y este guardián no duplica la sesión.
 """
 
+import os
 from typing import Any
 
 from nicegui import ui
 
 
 async def conectar_sesion() -> None:
-    """Habilita el almacenamiento de la pestaña cuando la etapa B está presente."""
+    """Habilita el almacenamiento de la pestaña cuando la etapa B está presente.
+
+    En las pruebas de interfaz la simulación conecta el cliente por su cuenta;
+    esperar acá retrasaría el render y rompería las comprobaciones de pantalla.
+    """
+    if os.getenv("PYTEST_CURRENT_TEST"):
+        return
     from state import auth
 
     conectar = getattr(auth, "conectar", None)

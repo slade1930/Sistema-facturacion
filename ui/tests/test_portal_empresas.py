@@ -167,6 +167,63 @@ async def test_login_guarda_sesion_y_entra_al_portal(monkeypatch):
 
 
 @pytest.mark.anyio
+async def test_login_admin_entra_al_panel(monkeypatch):
+    almacen: dict[str, Any] = {}
+    destinos: list[str] = []
+    monkeypatch.setattr(auth, "_almacen", lambda: almacen)
+    monkeypatch.setattr(ui.navigate, "to", lambda destino: destinos.append(destino))
+    monkeypatch.setattr(
+        login,
+        "enviar_login",
+        lambda empresa, contrasena: {
+            "token": "token-admin",
+            "rol": "admin",
+            "cuenta_id": 1,
+            "empresa": {"id": 1, "nombre": "Orquídea", "ruc": "123"},
+            "debe_cambiar_clave": False,
+        },
+    )
+
+    async with user_simulation(root=login.pagina_login) as user:
+        await user.open("/")
+        _establecer_input(user, "Empresa", "admin_prueba")
+        _establecer_input(user, "Contraseña", "Clave123")
+        user.find(kind=ui.button, content="Entrar").click()
+        await user.should_see("Sesión iniciada.")
+
+    assert almacen["portal_token"] == "token-admin"
+    assert auth.datos_usuario()["rol"] == "admin"
+    assert destinos == ["/admin/panel"]
+
+
+@pytest.mark.anyio
+async def test_login_con_clave_temporal_va_a_cambiarla(monkeypatch):
+    destinos: list[str] = []
+    monkeypatch.setattr(auth, "_almacen", lambda: {})
+    monkeypatch.setattr(ui.navigate, "to", lambda destino: destinos.append(destino))
+    monkeypatch.setattr(
+        login,
+        "enviar_login",
+        lambda empresa, contrasena: {
+            "token": "token-temporal",
+            "rol": "empresa",
+            "cuenta_id": 4,
+            "empresa": {"id": 7, "nombre": "Empresa Uno", "ruc": "123"},
+            "debe_cambiar_clave": True,
+        },
+    )
+
+    async with user_simulation(root=login.pagina_login) as user:
+        await user.open("/")
+        _establecer_input(user, "Empresa", "Empresa Uno")
+        _establecer_input(user, "Contraseña", "Clave123")
+        user.find(kind=ui.button, content="Entrar").click()
+        await user.should_see("Sesión iniciada.")
+
+    assert destinos == ["/portal/cambiar-clave"]
+
+
+@pytest.mark.anyio
 async def test_login_muestra_error_sin_guardar_token(monkeypatch):
     almacen: dict[str, Any] = {}
     monkeypatch.setattr(auth, "_almacen", lambda: almacen)
@@ -288,7 +345,7 @@ async def test_panel_muestra_solo_lo_que_devuelve_el_backend(monkeypatch, sesion
 
     async with user_simulation(root=inicio.pagina_inicio) as user:
         await user.open("/")
-        await user.should_see("Portal de empresas")
+        await user.should_see("Orquídea")
         await user.should_see("Total facturado")
         await user.should_see("FAC-2026-0009")
         await user.should_see("Recomendaciones para tu empresa")

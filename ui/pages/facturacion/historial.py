@@ -8,6 +8,7 @@ from components.forms import (
     mostrar_error,
     selector_orquidea,
 )
+from components.admin.seguridad import conectar_sesion
 from components.layout import montar_layout
 from components.shared import estado_cargando, estado_vacio, tabla_orquidea
 from state.cliente_api import ClienteApi, ErrorApi
@@ -66,7 +67,8 @@ def filas(items: list[dict[str, Any]]) -> list[dict[str, Any]]:
 
 
 @ui.page("/facturacion/historial")
-def pagina_historial() -> None:
+async def pagina_historial() -> None:
+    await conectar_sesion()
     montar_layout("Facturas emitidas", ruta_activa="/facturacion/historial")
 
     guardado = sesion.filtros_historial

@@ -10,6 +10,7 @@ from components.forms import (
     notificar,
     seccion_formulario,
 )
+from components.admin.seguridad import conectar_sesion
 from components.layout import montar_layout
 from components.shared import sello_emitir, sello_estado, total_animado
 from state.cliente_api import ClienteApi, ErrorApi
@@ -29,7 +30,8 @@ def _valor(datos: dict[str, Any], clave: str) -> str:
 
 
 @ui.page("/verificar")
-def pagina_verificar(numero_serie: str = "", codigo: str = "") -> None:
+async def pagina_verificar(numero_serie: str = "", codigo: str = "") -> None:
+    await conectar_sesion()
     montar_layout("Comprobar una factura", ruta_activa="/verificar")
 
     with seccion_formulario(

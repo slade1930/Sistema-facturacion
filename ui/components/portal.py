@@ -1,84 +1,33 @@
-"""Encabezado y navegación del portal de la empresa; etapa B."""
+"""Portal de la empresa sobre la cabecera ORQUÍDEA compartida; etapa B."""
 
 import asyncio
-from html import escape
 
 from nicegui import ui
 
 from components.forms import boton_orquidea
+from components.sesion import (
+    ACCION_PEDIDO,
+    RUTAS_PORTAL,
+    SECCIONES_PORTAL,
+    cabecera_html,
+    enlaces_moviles_html,
+    navegacion_html,
+)
 from state import auth
 
-SECCIONES = (
-    (
-        "Mi portal",
-        (
-            ("Inicio", "/portal/inicio"),
-            ("Catálogo", "/portal/catalogo"),
-            ("Carrito", "/portal/carrito"),
-        ),
-    ),
-    (
-        "Mis compras",
-        (
-            ("Pedidos", "/portal/pedidos"),
-            ("Facturas", "/portal/facturas"),
-            ("Mi cuenta", "/portal/mi-cuenta"),
-        ),
-    ),
-)
-
-RUTAS = {ruta for _, enlaces in SECCIONES for _, ruta in enlaces}
-
-
-def _contador_carrito() -> str:
-    return '<span class="orq-contador-carrito" data-orq-contador aria-label="Productos en el carrito"></span>'
-
-
-def _enlaces_moviles(activa: str) -> str:
-    partes = []
-    for seccion, enlaces in SECCIONES:
-        for texto, ruta in enlaces:
-            clases = "orq-cajon-enlace"
-            if ruta == activa:
-                clases += " orq-activo"
-            partes.append(
-                f'<a class="{clases}" href="{escape(ruta, quote=True)}">'
-                f"<span>{escape(texto)}"
-                f"{_contador_carrito() if ruta == '/portal/carrito' else ''}</span>"
-                f"<small>{escape(seccion)}</small></a>"
-            )
-    return "".join(partes)
+SECCIONES = SECCIONES_PORTAL
+RUTAS = RUTAS_PORTAL
+CONTADOR = ("/portal/carrito",)
 
 
 def _navegacion(activa: str) -> str:
-    partes = []
-    for seccion, enlaces in SECCIONES:
-        submenus = []
-        for texto, ruta in enlaces:
-            clases = "orq-subenlace"
-            if ruta == activa:
-                clases += " orq-activo"
-            submenus.append(
-                f'<a class="{clases}" href="{escape(ruta, quote=True)}">'
-                f"{escape(texto)}"
-                f"{_contador_carrito() if ruta == '/portal/carrito' else ''}</a>"
-            )
-        identificador = "orq-portal-" + seccion.lower().replace(" ", "-")
-        partes.append(
-            '<div class="orq-grupo">'
-            '<button type="button" class="orq-menu-boton" aria-haspopup="true" '
-            'aria-expanded="false" aria-controls="'
-            + escape(identificador, quote=True)
-            + '">'
-            + escape(seccion)
-            + '<span class="orq-flecha" aria-hidden="true">⌄</span></button>'
-            '<div class="orq-submenu" id="'
-            + escape(identificador, quote=True)
-            + '" hidden>'
-            + "".join(submenus)
-            + "</div></div>"
-        )
-    return "".join(partes)
+    return navegacion_html(
+        SECCIONES, activa, prefijo="orq-portal", contador=CONTADOR
+    )
+
+
+def _enlaces_moviles(activa: str) -> str:
+    return enlaces_moviles_html(SECCIONES, activa, contador=CONTADOR)
 
 
 async def salir() -> None:
@@ -92,28 +41,24 @@ async def salir() -> None:
 
 
 def montar_portal(titulo: str, *, ruta_activa: str = "") -> None:
-    """Cabecera propia del portal: nunca muestra menús de administración."""
-    nombre = escape(auth.nombre_empresa())
-    negocio = f'<span class="orq-negocio">{nombre}</span>' if nombre else ""
-    cabecera = (
-        '<div class="orq-header-inner">'
-        '<a class="orq-marca" href="/portal/inicio" aria-label="Ir al inicio">'
-        '<span class="orq-nombre-marca">Portal de empresas</span>'
-        f"{negocio}</a>"
-        '<nav class="orq-nav-escritorio" aria-label="Secciones del portal">'
-        + _navegacion(ruta_activa if ruta_activa in RUTAS else "/portal/inicio")
-        + "</nav>"
-        '<button type="button" class="orq-hamburguesa" aria-expanded="false" '
-        'aria-controls="orq-cajon" aria-label="Abrir menú">'
-        '<span aria-hidden="true">☰</span></button>'
-        "</div>"
-        '<nav class="orq-cajon" id="orq-cajon" hidden aria-label="Menú del portal">'
-        + _enlaces_moviles(ruta_activa if ruta_activa in RUTAS else "/portal/inicio")
-        + "</nav>"
-    )
-    ui.html(cabecera, sanitize=False, tag="header").classes(
-        "orq-header orq-header-fijo w-full"
-    )
+    """Misma cabecera que el administrador, con solo las secciones de la empresa."""
+    nombre = auth.nombre_empresa()
+    activa = ruta_activa if ruta_activa in RUTAS else "/portal/inicio"
+    ui.html(
+        cabecera_html(
+            SECCIONES,
+            activa,
+            href="/portal/inicio",
+            etiqueta="Ir al inicio",
+            nombre=nombre,
+            aria_nav="Secciones del portal",
+            aria_cajon="Menú del portal",
+            accion=ACCION_PEDIDO,
+            contador=CONTADOR,
+            prefijo="orq-portal",
+        ),
+        sanitize=False,
+    ).classes("orq-header orq-header-fijo w-full")
 
     with ui.row().classes("orq-barra-acciones w-full"):
         if nombre:
