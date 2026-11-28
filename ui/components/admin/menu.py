@@ -1,7 +1,7 @@
 """Encabezado y navegación del administrador; etapa C2.
 
-Reutiliza las clases ORQUIDEA del menú superior y carga solo el CSS propio
-de administración desde este módulo.
+Usa la misma cabecera ORQUÍDEA de siempre, con el menú de administración.
+Ninguna pantalla de empresa comparte estos enlaces.
 """
 
 from hashlib import md5
@@ -10,6 +10,15 @@ from pathlib import Path
 from typing import Any
 
 from nicegui import ui
+
+from components.sesion import marca
+
+CSS = Path(__file__).resolve().parents[2] / "static" / "orquidea-admin.css"
+VERSION = md5(CSS.read_bytes()).hexdigest()[:8] if CSS.exists() else "sin-version"
+ui.add_head_html(
+    f'<link rel="stylesheet" href="/static/orquidea-admin.css?v={VERSION}">',
+    shared=True,
+)
 
 SECCIONES_ADMIN = (
     ("Panel", (("Panel", "/admin/panel"),)),
@@ -52,13 +61,6 @@ GRUPOS_ADMIN = frozenset(
 RUTAS_ADMIN = {ruta for _, enlaces in SECCIONES_ADMIN for _, ruta in enlaces} | {
     "/admin"
 }
-
-CSS = Path(__file__).resolve().parents[2] / "static" / "orquidea-admin.css"
-VERSION = md5(CSS.read_bytes()).hexdigest()[:8] if CSS.exists() else "sin-version"
-ui.add_head_html(
-    f'<link rel="stylesheet" href="/static/orquidea-admin.css?v={VERSION}">',
-    shared=True,
-)
 
 
 def _activa(ruta_activa: str) -> str:
@@ -125,24 +127,28 @@ def _navegacion(activa: str) -> str:
 
 
 def montar_admin(titulo: str, *, ruta_activa: str = "") -> Any:
-    """Cabecera propia del administrador con un único título de página."""
+    """Cabecera ORQUÍDEA con el menú del administrador y un título de página."""
     activa = _activa(ruta_activa)
     cabecera = (
         '<div class="orq-header-inner">'
-        '<a class="orq-marca" href="/admin/panel" aria-label="Ir al panel">'
-        '<span class="orq-nombre-marca">Orquídea · Administración</span></a>'
-        '<nav class="orq-nav-escritorio" aria-label="Secciones del administrador">'
+        + marca("/admin/panel", "Ir al panel", "Administración")
+        + '<nav class="orq-nav-escritorio" aria-label="Secciones del administrador">'
         + _navegacion(activa)
         + "</nav>"
+        '<div class="orq-header-acciones">'
+        '<a class="orq-boton orq-boton--primario orq-accion-emitir" '
+        'href="/facturacion/nueva">'
+        '<span class="orq-accion-completa">Emitir factura</span>'
+        '<span class="orq-accion-corta">Emitir</span></a>'
         '<button type="button" class="orq-hamburguesa" aria-expanded="false" '
         'aria-controls="orq-cajon" aria-label="Abrir menú">'
         '<span aria-hidden="true">☰</span></button>'
-        "</div>"
+        "</div></div>"
         '<nav class="orq-cajon" id="orq-cajon" hidden aria-label="Menú del administrador">'
         + _enlaces_moviles(activa)
         + "</nav>"
     )
-    ui.html(cabecera, sanitize=False, tag="header").classes(
+    ui.html(cabecera, sanitize=False).classes(
         "orq-header orq-header-fijo orq-admin w-full"
     )
     with ui.element("section").classes("orq-encabezado-pagina w-full"):

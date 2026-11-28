@@ -1,4 +1,7 @@
-"""Encabezado y navegación del portal de la empresa; etapa B."""
+"""Encabezado y navegación del portal de la empresa; etapa B.
+
+Nunca muestra los menús del administrador: solo las secciones de la cuenta.
+"""
 
 import asyncio
 from html import escape
@@ -6,6 +9,7 @@ from html import escape
 from nicegui import ui
 
 from components.forms import boton_orquidea
+from components.sesion import marca
 from state import auth
 
 SECCIONES = (
@@ -92,26 +96,25 @@ async def salir() -> None:
 
 
 def montar_portal(titulo: str, *, ruta_activa: str = "") -> None:
-    """Cabecera propia del portal: nunca muestra menús de administración."""
-    nombre = escape(auth.nombre_empresa())
-    negocio = f'<span class="orq-negocio">{nombre}</span>' if nombre else ""
+    """Cabecera ORQUÍDEA del portal: muestra solo lo que puede ver la empresa."""
+    nombre = auth.nombre_empresa()
+    activa = ruta_activa if ruta_activa in RUTAS else "/portal/inicio"
     cabecera = (
         '<div class="orq-header-inner">'
-        '<a class="orq-marca" href="/portal/inicio" aria-label="Ir al inicio">'
-        '<span class="orq-nombre-marca">Portal de empresas</span>'
-        f"{negocio}</a>"
-        '<nav class="orq-nav-escritorio" aria-label="Secciones del portal">'
-        + _navegacion(ruta_activa if ruta_activa in RUTAS else "/portal/inicio")
+        + marca("/portal/inicio", "Ir al inicio", nombre)
+        + '<nav class="orq-nav-escritorio" aria-label="Secciones del portal">'
+        + _navegacion(activa)
         + "</nav>"
+        '<div class="orq-header-acciones">'
         '<button type="button" class="orq-hamburguesa" aria-expanded="false" '
         'aria-controls="orq-cajon" aria-label="Abrir menú">'
         '<span aria-hidden="true">☰</span></button>'
-        "</div>"
+        "</div></div>"
         '<nav class="orq-cajon" id="orq-cajon" hidden aria-label="Menú del portal">'
-        + _enlaces_moviles(ruta_activa if ruta_activa in RUTAS else "/portal/inicio")
+        + _enlaces_moviles(activa)
         + "</nav>"
     )
-    ui.html(cabecera, sanitize=False, tag="header").classes(
+    ui.html(cabecera, sanitize=False).classes(
         "orq-header orq-header-fijo w-full"
     )
 

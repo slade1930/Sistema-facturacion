@@ -4,15 +4,8 @@ from typing import Any
 
 from nicegui import ui
 
+from components.sesion import petalo
 from state.cliente_api import ClienteApi
-
-MARCA = """
-<svg viewBox="0 0 48 48" role="img" aria-label="Orquídea">
-  <path d="M24 42C24 31 14 27 10 19 6 11 13 5 24 13 35 5 42 11 38 19 34 27 24 31 24 42Z"
-        fill="none" stroke="#220A3A" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-  <path d="M24 42V20m0 8-9-6m9 6 9-6" fill="none" stroke="#D4157F" stroke-width="2" stroke-linecap="round"/>
-</svg>
-"""
 
 SECCIONES = (
     (
@@ -134,7 +127,7 @@ def _cabecera(activa: str) -> str:
     return (
         f'<div class="orq-header-inner">'
         f'<a class="orq-marca" href="/" aria-label="Ir al inicio">'
-        f'<span class="orq-petala">{MARCA}</span>'
+        f"{petalo()}"
         f'<span class="orq-nombre-marca">Orquídea</span>{negocio_html}</a>'
         f'<nav class="orq-nav-escritorio" aria-label="Secciones">'
         f"{_navegacion(activa)}</nav>"

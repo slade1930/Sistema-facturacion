@@ -5,6 +5,7 @@ from nicegui import ui
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
+from components import portal, sesion
 from components.admin import api as api_admin
 from components.admin import menu, seguridad
 from components.admin.formato import VACIO, dinero, fecha, numero, texto
@@ -129,6 +130,28 @@ def test_admin_menu_publica_todos_los_enlaces():
         assert f'href="{ruta}"' in escritorio
         assert f'href="{ruta}"' in movil
     assert 'aria-current="page"' in escritorio
+
+
+def test_admin_y_portal_comparten_la_marca_pero_no_los_enlaces():
+    marca_admin = sesion.marca("/admin/panel", "Ir al panel", "Administración")
+    marca_portal = sesion.marca("/portal/inicio", "Ir al inicio", "Empresa Uno")
+
+    for marca in (marca_admin, marca_portal):
+        assert "orq-petala" in marca
+        assert "Orquídea" in marca
+        assert "orq-nombre-marca" in marca
+
+    navegacion_admin = menu._navegacion("/admin/panel")
+    navegacion_portal = portal._navegacion("/portal/inicio")
+
+    assert "/admin/panel" in navegacion_admin
+    assert "Auditoría" in navegacion_admin
+    assert "/portal/" not in navegacion_admin
+
+    assert "/portal/inicio" in navegacion_portal
+    assert "/admin/" not in navegacion_portal
+    assert "Auditoría" not in navegacion_portal
+    assert "Panel" not in navegacion_portal
 
 
 def test_admin_formato_muestra_lo_que_entrega_el_backend():
