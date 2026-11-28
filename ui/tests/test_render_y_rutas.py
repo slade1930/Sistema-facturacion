@@ -26,6 +26,15 @@ from state.cliente_api import ErrorApi
 
 RUTAS_ESPERADAS = {
     "/",
+    "/admin",
+    "/admin/auditoria",
+    "/admin/catalogo",
+    "/admin/catalogo/categorias",
+    "/admin/empresas",
+    "/admin/inventario",
+    "/admin/panel",
+    "/admin/pedidos",
+    "/admin/pedidos/por-facturar",
     "/catalogo",
     "/carrito",
     "/configuracion",

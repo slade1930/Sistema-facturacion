@@ -394,6 +394,17 @@ def inicio() -> None:
         ui.label(" · ".join(partes)).classes("orq-pie")
 
 
+# Registro de rutas del administrador (etapa C2): solo imports, sin tocar el
+# comportamiento existente ni la configuración de la aplicación.
+from pages.admin import auditoria as _pagina_admin_auditoria  # noqa: E402
+from pages.admin import catalogo as _pagina_admin_catalogo  # noqa: E402
+from pages.admin import empresas as _pagina_admin_empresas  # noqa: E402
+from pages.admin import inventario as _pagina_admin_inventario  # noqa: E402
+from pages.admin import panel as _pagina_admin_panel  # noqa: E402
+from pages.admin import pedidos as _pagina_admin_pedidos  # noqa: E402
+from pages.admin import por_facturar as _pagina_admin_por_facturar  # noqa: E402
+
+
 ui.run(
     host="0.0.0.0",
     port=int(os.getenv("UI_PORT", "8080")),
