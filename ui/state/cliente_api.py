@@ -31,12 +31,14 @@ class ClienteApi:
         api_key: str | None = None,
         client: httpx.Client | None = None,
         timeout: float = 10.0,
+        token: str | None = None,
     ) -> None:
         self.base_url = (
             base_url or os.getenv("BACKEND_URL", "http://localhost:8000")
         ).rstrip("/")
         self.api_key = api_key if api_key is not None else os.getenv("API_KEY", "")
         self.timeout = timeout
+        self.token = token
         self._client = client
         self._cerrar = client is None
 
@@ -60,7 +62,10 @@ class ClienteApi:
     def _headers(self, ruta: str) -> dict[str, str]:
         if any(ruta.startswith(publica) for publica in RUTAS_PUBLICAS):
             return {}
-        return {"X-API-Key": self.api_key}
+        cabeceras = {"X-API-Key": self.api_key}
+        if self.token:
+            cabeceras["Authorization"] = f"Bearer {self.token}"
+        return cabeceras
 
     def request(
         self,
