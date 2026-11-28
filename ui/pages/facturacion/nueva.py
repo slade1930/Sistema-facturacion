@@ -3,6 +3,7 @@ from typing import Any
 
 from nicegui import ui
 
+from components.admin.seguridad import exigir_admin
 from components.forms import (
     barra_acciones,
     boton_orquidea,
@@ -182,6 +183,8 @@ def calcular_resumen(
 
 @ui.page("/facturacion/nueva")
 def pagina_nueva() -> None:
+    if not exigir_admin():
+        return
     montar_layout("Nueva factura", ruta_activa="/facturacion/nueva")
 
     guardado = sesion.datos_cliente

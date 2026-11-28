@@ -1,0 +1,117 @@
+/* ORQUÍDEA · administración: solo lo específico del panel global. */
+
+.orq-admin .orq-header-inner {
+  max-width: 1440px;
+  margin: 0 auto;
+}
+
+.orq-admin .orq-nombre-marca {
+  white-space: nowrap;
+}
+
+.orq-admin-enlace {
+  align-items: center;
+  display: inline-flex;
+  min-height: 44px;
+  text-decoration: none;
+}
+
+.orq-admin-enlace[aria-current="page"] {
+  color: var(--orq-tinta) !important;
+}
+
+.orq-admin-tarjetas {
+  display: grid;
+  gap: var(--orq-e3);
+  grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+  width: 100%;
+}
+
+.orq-admin-tarjeta {
+  background: var(--orq-petalo) !important;
+  border: 1px solid var(--orq-lila-borde);
+  border-left: 4px solid var(--orq-violeta);
+  border-radius: var(--orq-radio-panel);
+  min-height: 96px;
+  padding: var(--orq-e3);
+}
+
+.orq-admin-tarjeta--dinero {
+  border-left-color: var(--orq-fucsia-tinta);
+}
+
+.orq-admin-tarjeta--alerta {
+  border-left-color: var(--orq-alerta);
+}
+
+.orq-admin-tarjeta-etiqueta {
+  color: var(--orq-anulada) !important;
+  font-size: 13px !important;
+}
+
+.orq-admin-tarjeta-valor {
+  font-family: var(--orq-titulos) !important;
+  font-size: 28px !important;
+  font-variant-numeric: tabular-nums;
+  line-height: 34px;
+}
+
+.orq-admin-bloque {
+  border-top: 1px solid var(--orq-lila-borde);
+  margin-top: var(--orq-e6);
+  padding-top: var(--orq-e4);
+  width: 100%;
+}
+
+.orq-admin-grafico {
+  background: var(--orq-petalo) !important;
+  border: 1px solid var(--orq-lila-borde);
+  border-radius: var(--orq-radio-panel);
+  height: 300px !important;
+  width: 100% !important;
+}
+
+.orq-admin-dos {
+  display: grid;
+  gap: var(--orq-e4);
+  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+  width: 100%;
+}
+
+.orq-admin-alerta {
+  border-left: 4px solid var(--orq-alerta);
+  padding: var(--orq-e2) var(--orq-e3);
+}
+
+.orq-admin-nota {
+  color: var(--orq-anulada) !important;
+  font-size: 13px !important;
+}
+
+.orq-admin-tabla td,
+.orq-admin-tabla th {
+  font-variant-numeric: tabular-nums;
+}
+
+.orq-admin-acciones {
+  border-top: 1px solid var(--orq-lila-borde);
+  gap: var(--orq-e2);
+  margin-top: var(--orq-e4);
+  padding-top: var(--orq-e3);
+  width: 100%;
+}
+
+@media (max-width: 900px) {
+  .orq-admin .orq-nombre-marca {
+    font-size: 14px !important;
+  }
+
+  .orq-admin-tarjetas,
+  .orq-admin-dos {
+    grid-template-columns: 1fr;
+  }
+
+  .orq-admin-grafico {
+    height: 260px !important;
+  }
+}

@@ -26,17 +26,15 @@ from state.cliente_api import ErrorApi
 
 RUTAS_ESPERADAS = {
     "/",
-    "/login",
-    "/registro",
-    "/portal/cambiar-clave",
-    "/portal/carrito",
-    "/portal/catalogo",
-    "/portal/compra-exitosa",
-    "/portal/factura-detalle",
-    "/portal/facturas",
-    "/portal/inicio",
-    "/portal/mi-cuenta",
-    "/portal/pedidos",
+    "/admin",
+    "/admin/auditoria",
+    "/admin/catalogo",
+    "/admin/catalogo/categorias",
+    "/admin/empresas",
+    "/admin/inventario",
+    "/admin/panel",
+    "/admin/pedidos",
+    "/admin/pedidos/por-facturar",
     "/catalogo",
     "/carrito",
     "/configuracion",
@@ -50,6 +48,32 @@ RUTAS_ESPERADAS = {
     "/pedidos/por-facturar",
     "/verificar",
 }
+
+# Rutas que registra la etapa B. En la rama C sola los módulos del portal siguen
+# siendo stubs, así que no se registran: el conjunto se amplía solo cuando B está
+# presente (por ejemplo al integrar C sobre `desarrollo`).
+RUTAS_PORTAL_EMPRESAS = {
+    "/login",
+    "/registro",
+    "/portal/cambiar-clave",
+    "/portal/carrito",
+    "/portal/catalogo",
+    "/portal/compra-exitosa",
+    "/portal/factura-detalle",
+    "/portal/facturas",
+    "/portal/inicio",
+    "/portal/mi-cuenta",
+    "/portal/pedidos",
+}
+
+
+def _rutas_esperadas() -> set[str]:
+    """Une las rutas de C con las de B solo si la sesión de B está implementada."""
+    from state import auth
+
+    if hasattr(auth, "token") and hasattr(auth, "datos_usuario"):
+        return RUTAS_ESPERADAS | RUTAS_PORTAL_EMPRESAS
+    return set(RUTAS_ESPERADAS)
 
 
 def _cargar_app() -> object:
@@ -94,9 +118,10 @@ def test_app_registra_todas_las_rutas(monkeypatch):
         ruta
         for ruta in Client.page_routes.values()
     }
+    rutas_esperadas = _rutas_esperadas()
 
-    assert rutas_registradas == RUTAS_ESPERADAS
-    assert RUTAS_ESPERADAS <= {
+    assert rutas_registradas == rutas_esperadas
+    assert rutas_esperadas <= {
         ruta.path for ruta in core.app.routes if hasattr(ruta, "path")
     }
 
