@@ -1,4 +1,5 @@
 import os
+import secrets
 from hashlib import md5, sha256
 from pathlib import Path
 from urllib.parse import quote, urlencode
@@ -23,6 +24,20 @@ from pages.pedidos import pedido_exitoso as _pagina_exitoso
 from pages.pedidos import pedidos_pendientes as _pagina_pedidos
 from pages.verificar import verificar as _pagina_verificar
 from state.cliente_api import ClienteApi
+
+
+def _secreto_almacenamiento() -> str:
+    """Secreto propio de la UI, nunca derivado de la API-Key del backend."""
+    configurado = os.getenv("UI_STORAGE_SECRET", "").strip()
+    if configurado:
+        return sha256(configurado.encode("utf-8")).hexdigest()
+    # Solo en pruebas: valor temporal aleatorio que no persiste entre ejecuciones.
+    if os.getenv("PYTEST_CURRENT_TEST"):
+        return sha256(secrets.token_bytes(32)).hexdigest()
+    raise RuntimeError(
+        "UI_STORAGE_SECRET no está configurada; no se puede iniciar la interfaz."
+    )
+
 
 app.add_static_files(
     "/static", str(Path(__file__).parent / "static"), max_cache_age=0
@@ -398,9 +413,5 @@ ui.run(
     host="0.0.0.0",
     port=int(os.getenv("UI_PORT", "8080")),
     title="Orquídea",
-    # El carrito vive en el almacenamiento de la pestaña; derivamos la clave de sesión
-    # de la API_KEY que ya existe, sin pedir una variable nueva.
-    storage_secret=sha256(
-        os.getenv("API_KEY", "orquidea-local").encode("utf-8")
-    ).hexdigest(),
+    storage_secret=_secreto_almacenamiento(),
 )
