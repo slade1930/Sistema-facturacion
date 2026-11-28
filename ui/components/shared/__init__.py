@@ -1,3 +1,4 @@
+from decimal import Decimal, InvalidOperation, ROUND_HALF_UP
 from html import escape
 from typing import Any
 
@@ -17,6 +18,35 @@ SELLOS = {
 def sello_estado(estado: str) -> Any:
     texto, clase = SELLOS.get(estado, (estado.capitalize(), "orq-sello--neutro"))
     return ui.html(f'<span class="orq-sello {clase}">{escape(texto)}</span>')
+
+
+def _decimal(valor: Any) -> Decimal:
+    try:
+        return Decimal(str(valor or 0))
+    except (InvalidOperation, ValueError, TypeError):
+        return Decimal("0")
+
+
+def en_oferta(producto: dict[str, Any]) -> bool:
+    """Un producto está en oferta cuando su descuento es mayor que cero."""
+    return _decimal(producto.get("descuento_pct")) > 0
+
+
+def precio_con_descuento(valor: Any, descuento_pct: Any = 0) -> str:
+    """Precio ya descontado, con el mismo redondeo que usa el backend."""
+    if valor is None or str(valor).strip() == "":
+        return "—"
+    try:
+        precio = Decimal(str(valor))
+    except (InvalidOperation, ValueError, TypeError):
+        return str(valor)
+    descuento = _decimal(descuento_pct)
+    if descuento <= 0:
+        return f"{precio.quantize(Decimal('0.01'), rounding=ROUND_HALF_UP):.2f}"
+    neto = (precio * (Decimal("100") - descuento) / Decimal("100")).quantize(
+        Decimal("0.01"), rounding=ROUND_HALF_UP
+    )
+    return f"{neto:.2f}"
 
 
 def total_animado(valor: str, etiqueta: str = "Total") -> Any:

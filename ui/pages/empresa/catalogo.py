@@ -15,7 +15,12 @@ from components.forms import (
     selector_orquidea,
 )
 from components.portal import montar_portal
-from components.shared import estado_cargando, estado_vacio
+from components.shared import (
+    en_oferta,
+    estado_cargando,
+    estado_vacio,
+    precio_con_descuento,
+)
 from pages.catalogo.catalogo import agregar_al_carrito, opciones_empaque
 from state import auth
 from state.cliente_api import ErrorApi
@@ -93,8 +98,49 @@ async def pagina_catalogo_empresa() -> None:
                 ):
                     ui.label(str(producto["nombre"])).classes("orq-entrada-titulo")
                     ui.label(f"SKU: {_valor(producto, 'sku')}").classes("orq-ayuda")
+                    if _valor(producto, "marca"):
+                        ui.label(f"Marca: {_valor(producto, 'marca')}").classes(
+                            "orq-ayuda"
+                        )
+                    if _valor(producto, "presentacion"):
+                        ui.label(
+                            f"Presentación: {_valor(producto, 'presentacion')}"
+                        ).classes("orq-ayuda")
                     if not disponible:
                         ui.label("No disponible").classes("orq-ayuda")
+                    descuento = _valor(producto, "descuento_pct") or "0"
+                    if en_oferta(producto):
+                        ui.label(f"Oferta {descuento} %").classes(
+                            "orq-sello orq-sello--neutro"
+                        )
+                    with ui.column().classes("gap-0 mt-2"):
+                        ui.label(
+                            f"Unidad: {precio_con_descuento(producto.get('precio_unidad'), descuento)}"
+                            + (
+                                f" (antes {_valor(producto, 'precio_unidad')})"
+                                if en_oferta(producto)
+                                else ""
+                            )
+                        ).classes("orq-resumen tabular-nums")
+                        ui.label(
+                            f"Caja: {precio_con_descuento(producto.get('precio_caja'), descuento)}"
+                            + (
+                                f" (antes {_valor(producto, 'precio_caja')})"
+                                if en_oferta(producto)
+                                else ""
+                            )
+                        ).classes("orq-resumen tabular-nums")
+                        if producto.get("permite_media_caja") and producto.get(
+                            "precio_media_caja"
+                        ) is not None:
+                            ui.label(
+                                f"Media caja: {precio_con_descuento(producto.get('precio_media_caja'), descuento)}"
+                                + (
+                                    f" (antes {_valor(producto, 'precio_media_caja')})"
+                                    if en_oferta(producto)
+                                    else ""
+                                )
+                            ).classes("orq-resumen tabular-nums")
                     with ui.row().classes("w-full items-end gap-3 mt-3"):
                         envase = selector_orquidea(
                             "Presentación",

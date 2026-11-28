@@ -19,6 +19,7 @@ from sqlalchemy import (
     Text,
     UniqueConstraint,
     func,
+    text,
 )
 from sqlalchemy import Enum as SAEnum
 from sqlalchemy.orm import Mapped, mapped_column, relationship
@@ -77,6 +78,10 @@ class Producto(TimestampMixin, Base):
     __table_args__ = (
         UniqueConstraint("sku", name="uq_producto_sku"),
         CheckConstraint("unidades_por_caja >= 1", name="ck_producto_unidades"),
+        CheckConstraint(
+            "descuento_pct >= 0 AND descuento_pct <= 90",
+            name="ck_producto_descuento",
+        ),
         Index("ix_producto_categoria", "categoria_id"),
     )
 
@@ -89,6 +94,8 @@ class Producto(TimestampMixin, Base):
     sku: Mapped[str] = mapped_column(String(50), nullable=False)
     codigo_barras: Mapped[str | None] = mapped_column(String(50), nullable=True)
     descripcion_corta: Mapped[str | None] = mapped_column(String(500), nullable=True)
+    marca: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    presentacion: Mapped[str | None] = mapped_column(String(50), nullable=True)
     imagen: Mapped[str | None] = mapped_column(String(100), nullable=True)
     precio_caja: Mapped[Decimal] = mapped_column(Numeric(14, 2), nullable=False)
     precio_media_caja: Mapped[Decimal | None] = mapped_column(
@@ -104,6 +111,12 @@ class Producto(TimestampMixin, Base):
     )
     unidades_por_caja: Mapped[int] = mapped_column(
         Integer, nullable=False, default=1, server_default="1"
+    )
+    descuento_pct: Mapped[Decimal] = mapped_column(
+        Numeric(5, 2),
+        nullable=False,
+        default=Decimal("0.00"),
+        server_default=text("0.00"),
     )
     aplica_itbms: Mapped[bool] = mapped_column(
         Boolean, nullable=False, default=True, server_default="true"
