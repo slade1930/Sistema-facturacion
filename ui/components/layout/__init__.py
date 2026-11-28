@@ -78,6 +78,10 @@ def nombre_negocio() -> str:
     return datos_negocio().get("nombre", "")
 
 
+def _contador_carrito() -> str:
+    return '<span class="orq-contador-carrito" data-orq-contador aria-label="Productos en el carrito"></span>'
+
+
 def _enlaces_moviles(activa: str) -> str:
     partes = []
     for seccion, enlaces in SECCIONES:
@@ -87,7 +91,8 @@ def _enlaces_moviles(activa: str) -> str:
                 clases += " orq-activo"
             partes.append(
                 f'<a class="{clases}" href="{escape(ruta, quote=True)}">'
-                f'<span>{escape(texto)}</span><small>{escape(seccion)}</small></a>'
+                f'<span>{escape(texto)}{_contador_carrito() if ruta == "/carrito" else ""}</span>'
+                f'<small>{escape(seccion)}</small></a>'
             )
     return "".join(partes)
 
@@ -107,7 +112,7 @@ def _navegacion(activa: str) -> str:
                 clases += " orq-activo"
             submenus.append(
                 f'<a class="{clases}" href="{escape(ruta, quote=True)}">'
-                f"{escape(texto)}</a>"
+                f"{escape(texto)}{_contador_carrito() if ruta == '/carrito' else ''}</a>"
             )
         partes.append(
             f'<div class="orq-grupo">'

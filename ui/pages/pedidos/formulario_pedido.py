@@ -14,7 +14,7 @@ from components.layout import montar_layout
 from components.shared import estado_vacio, ticket_resumen
 from pages.catalogo.carrito import calcular as calcular_carrito
 from state.cliente_api import ClienteApi, ErrorApi
-from state.sesion import sesion
+from state.sesion import conectar_storage, sesion
 
 cliente = ClienteApi()
 
@@ -80,7 +80,8 @@ def _valor(datos: dict[str, Any], clave: str) -> str:
 
 
 @ui.page("/pedidos/formulario")
-def pagina_formulario_pedido() -> None:
+async def pagina_formulario_pedido() -> None:
+    await conectar_storage()
     montar_layout(
         "Armar un pedido", ruta_activa="/pedidos/formulario", migas="Productos"
     )
@@ -93,7 +94,7 @@ def pagina_formulario_pedido() -> None:
         with ui.column().classes("w-full gap-4"):
             with seccion_formulario(
                 "Datos del pedido",
-                "Elegí el cliente y sumá una nota si el pedido necesita una indicación.",
+                "Elige el cliente y suma una nota si el pedido necesita una indicación.",
             ):
                 clientes = selector_orquidea(
                     "Cliente", {0: "Seleccione un cliente"}, value=0
@@ -125,7 +126,7 @@ def pagina_formulario_pedido() -> None:
             with resumen:
                 estado_vacio(
                     "El carrito está vacío.",
-                    "Agregá productos desde el catálogo antes de armar el pedido.",
+                    "Agrega productos desde el catálogo antes de armar el pedido.",
                 )
             return
 
@@ -159,7 +160,7 @@ def pagina_formulario_pedido() -> None:
 
         if not clientes.value:
             with mensajes:
-                ui.label("Elegí un cliente para continuar.").classes("orq-error")
+                ui.label("Elige un cliente para continuar.").classes("orq-error")
             return
         if not calculo_actual:
             with mensajes:

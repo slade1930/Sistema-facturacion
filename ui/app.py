@@ -1,8 +1,10 @@
 import os
-from hashlib import md5
+from hashlib import md5, sha256
 from pathlib import Path
-from urllib.parse import urlencode
+from urllib.parse import quote, urlencode
 
+import httpx
+from fastapi import Response
 from nicegui import app, ui
 
 from components.forms import boton_orquidea, campo_orquidea, mostrar_error
@@ -25,6 +27,26 @@ from state.cliente_api import ClienteApi
 app.add_static_files(
     "/static", str(Path(__file__).parent / "static"), max_cache_age=0
 )
+
+
+@app.get("/media/{nombre}")
+def servir_logo(nombre: str) -> Response:
+    """Muestra el logo guardado por el backend sin exponer su dirección interna."""
+    if not nombre or "/" in nombre or "\\" in nombre or ".." in nombre:
+        return Response(status_code=404)
+    base = os.getenv("BACKEND_URL", "http://localhost:8000").rstrip("/")
+    try:
+        with httpx.Client(timeout=5.0) as cliente:
+            respuesta = cliente.get(f"{base}/media/{quote(nombre)}")
+    except Exception:
+        return Response(status_code=502)
+    return Response(
+        content=respuesta.content,
+        status_code=respuesta.status_code,
+        media_type=respuesta.headers.get("content-type", "application/octet-stream"),
+    )
+
+
 app.colors(
     primary="#6C2BD9",
     secondary="#220A3A",
@@ -49,6 +71,15 @@ ui.add_head_html(
       sessionStorage.setItem('orq_entrada', '1');
     }
   } catch (error) { /* sin sessionStorage: sin animación de entrada */ }
+</script>
+<script>
+  document.addEventListener('DOMContentLoaded', function () {
+    var numero = '';
+    try { numero = sessionStorage.getItem('orq_carrito_count') || ''; } catch (error) { numero = ''; }
+    document.querySelectorAll('.orq-contador-carrito').forEach(function (elemento) {
+      elemento.textContent = numero === '0' ? '' : numero;
+    });
+  });
 </script>
 <script>
   document.addEventListener('DOMContentLoaded', function () {
@@ -216,7 +247,7 @@ def inicio() -> None:
     with ui.element("section").classes("orq-hero w-full"):
         ui.label("Tu facturación, en orden").classes("orq-hero-titulo")
         ui.label(
-            "Elegí una acción, revisá lo emitido o comprobá una factura."
+            "Elige una acción, revisa lo emitido o comprueba una factura."
         ).classes("orq-hero-bajada")
         with ui.column().classes("orq-hero-ultima w-full") as ultima:
             estado_cargando(3)
@@ -265,8 +296,8 @@ def inicio() -> None:
             "orq-bloque-ayuda"
         )
         pasos = (
-            ("01", "Pedido", "Elegí los productos y confirmá la entrega."),
-            ("02", "Factura", "Emití el talonario con cliente, líneas e ITBMS."),
+            ("01", "Pedido", "Elige los productos y confirma la entrega."),
+            ("02", "Factura", "Emite el talonario con cliente, líneas e ITBMS."),
             ("03", "QR", "La factura queda lista para compartir con su código."),
             ("04", "Verificación", "Cualquiera puede comprobar los datos con serie y código."),
         )
@@ -323,7 +354,7 @@ def inicio() -> None:
     with ui.element("section").classes("orq-bloque w-full"):
         ui.label("Verificación pública").classes("orq-bloque-titulo")
         ui.label(
-            "Ingresá los datos impresos en la factura para comprobarla."
+            "Ingresa los datos impresos en la factura para comprobarla."
         ).classes("orq-bloque-ayuda")
         with ui.element("div").classes("orq-verificar-bloque"):
             with ui.column().classes("orq-verificar-campos w-full"):
@@ -339,7 +370,7 @@ def inicio() -> None:
                     codigo.value or ""
                 ).strip():
                     ui.notify(
-                        "Ingresá el número de serie y el código de verificación.",
+                        "Ingresa el número de serie y el código de verificación.",
                         type="warning",
                     )
                     return
@@ -367,4 +398,9 @@ ui.run(
     host="0.0.0.0",
     port=int(os.getenv("UI_PORT", "8080")),
     title="Orquídea",
+    # El carrito vive en el almacenamiento de la pestaña; derivamos la clave de sesión
+    # de la API_KEY que ya existe, sin pedir una variable nueva.
+    storage_secret=sha256(
+        os.getenv("API_KEY", "orquidea-local").encode("utf-8")
+    ).hexdigest(),
 )

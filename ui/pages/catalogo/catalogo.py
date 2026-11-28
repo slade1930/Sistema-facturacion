@@ -14,7 +14,7 @@ from components.forms import (
 from components.layout import montar_layout
 from components.shared import estado_vacio
 from state.cliente_api import ClienteApi
-from state.sesion import sesion
+from state.sesion import actualizar_contador, conectar_storage, sesion
 
 cliente = ClienteApi()
 
@@ -42,27 +42,41 @@ def listar_productos(
     return cliente_api.get("/api/v1/productos", params=params)
 
 
+def opciones_empaque(producto: dict[str, Any]) -> dict[str, str]:
+    """Solo ofrece media caja cuando el producto la permite."""
+    opciones = {"caja": "Caja"}
+    if producto.get("permite_media_caja") and producto.get("precio_media_caja") not in (None, ""):
+        opciones["media_caja"] = "Media caja"
+    opciones["unidad"] = "Unidad"
+    return opciones
+
+
 def agregar_al_carrito(
     carrito: list[dict[str, Any]],
     producto: dict[str, Any],
     tipo_empaque: str,
     cantidad: float,
 ) -> None:
+    datos = {
+        "producto_id": producto["id"],
+        "nombre": producto["nombre"],
+        "tipo_empaque": tipo_empaque,
+        "cantidad": float(cantidad),
+        "precio_caja": producto.get("precio_caja"),
+        "precio_media_caja": producto.get("precio_media_caja"),
+        "precio_unidad": producto.get("precio_unidad"),
+        "permite_media_caja": bool(producto.get("permite_media_caja")),
+        "estado_activo": producto.get("estado_activo", True),
+    }
     for item in carrito:
         if (
             item["producto_id"] == producto["id"]
             and item["tipo_empaque"] == tipo_empaque
         ):
             item["cantidad"] = float(item["cantidad"]) + float(cantidad)
+            item.update({clave: valor for clave, valor in datos.items() if clave != "cantidad"})
             return
-    carrito.append(
-        {
-            "producto_id": producto["id"],
-            "nombre": producto["nombre"],
-            "tipo_empaque": tipo_empaque,
-            "cantidad": float(cantidad),
-        }
-    )
+    carrito.append(datos)
 
 
 def _valor(datos: dict[str, Any], clave: str) -> str:
@@ -71,7 +85,8 @@ def _valor(datos: dict[str, Any], clave: str) -> str:
 
 
 @ui.page("/catalogo")
-def pagina_catalogo() -> None:
+async def pagina_catalogo() -> None:
+    await conectar_storage()
     montar_layout("Productos y precios", ruta_activa="/catalogo")
 
     mensajes = ui.column().classes("w-full")
@@ -99,7 +114,24 @@ def pagina_catalogo() -> None:
         categoria.options = opciones
         categoria.update()
 
+    def agregar(producto: dict[str, Any], envase: Any, cantidad: Any) -> None:
+        if not producto.get("estado_activo", True):
+            notificar("Este producto no está disponible.", tipo="warning")
+            return
+        total = float(cantidad.value or 0)
+        if total <= 0:
+            notificar("Elige una cantidad mayor a cero.", tipo="warning")
+            return
+        empaque = str(envase.value or "caja")
+        if empaque not in opciones_empaque(producto):
+            notificar("Elige una presentación disponible para este producto.", tipo="warning")
+            return
+        agregar_al_carrito(sesion.carrito, producto, empaque, total)
+        notificar("Producto añadido")
+        actualizar_contador(sesion.carrito)
+
     def _tarjeta(producto: dict[str, Any], indice: int) -> None:
+        disponible = bool(producto.get("estado_activo", True))
         acentos = (
             "border-top: 3px solid var(--orq-fucsia)",
             "border-left: 3px solid var(--orq-fucsia)",
@@ -109,12 +141,10 @@ def pagina_catalogo() -> None:
         ):
             with ui.row().classes("w-full items-start justify-between gap-4"):
                 with ui.column().classes("gap-0"):
-                    ui.label(str(producto["nombre"])).classes(
-                        "orq-entrada-titulo"
-                    )
-                    ui.label(f"SKU: {_valor(producto, 'sku')}").classes(
-                        "orq-ayuda"
-                    )
+                    ui.label(str(producto["nombre"])).classes("orq-entrada-titulo")
+                    ui.label(f"SKU: {_valor(producto, 'sku')}").classes("orq-ayuda")
+                    if not disponible:
+                        ui.label("No disponible").classes("orq-ayuda")
                 with ui.column().classes("items-end gap-0"):
                     ui.label("$").classes("orq-entrada-numero")
                     ui.label(f"Caja: {_valor(producto, 'precio_caja')}").classes(
@@ -126,28 +156,20 @@ def pagina_catalogo() -> None:
 
             with ui.row().classes("w-full items-end gap-3 mt-3"):
                 envase = selector_orquidea(
-                    "Presentación", ENVASES, value="caja", buscar=False
+                    "Presentación",
+                    opciones_empaque(producto),
+                    value="caja",
+                    buscar=False,
                 )
                 cantidad = numero_orquidea(
                     "Cantidad", value=1, min=0.01, precision=2
                 )
-                boton_orquidea(
-                    "Agregar",
+                boton = boton_orquidea(
+                    "Añadir al carrito",
                     lambda p=producto, e=envase, c=cantidad: agregar(p, e, c),
                 )
-
-    def agregar(producto: dict[str, Any], envase: Any, cantidad: Any) -> None:
-        total = float(cantidad.value or 0)
-        if total <= 0:
-            notificar("Elegí una cantidad mayor a cero.", tipo="warning")
-            return
-        agregar_al_carrito(
-            sesion.carrito,
-            producto,
-            str(envase.value or "caja"),
-            total,
-        )
-        notificar("Producto agregado al carrito.")
+                if not disponible:
+                    boton.disable()
 
     def cargar_productos() -> None:
         mensajes.clear()
@@ -165,7 +187,7 @@ def pagina_catalogo() -> None:
             with productos:
                 estado_vacio(
                     "No encontramos productos con esos filtros.",
-                    "Probá con otro nombre o categoría.",
+                    "Prueba con otro nombre o categoría.",
                 )
             return
 

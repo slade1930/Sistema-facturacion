@@ -208,6 +208,23 @@ html.orq-entrada .orq-petala path { animation: orq-trazo 900ms ease-out 180ms fo
   font-size: 14px !important;
 }
 .orq-subenlace:hover { background: var(--orq-lila) !important; color: var(--orq-tinta) !important; }
+.orq-contador-carrito {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 18px;
+  height: 18px;
+  margin-left: 6px;
+  padding: 0 4px;
+  border-radius: 999px;
+  background: var(--orq-fucsia);
+  color: #fff !important;
+  font-size: 11px !important;
+  font-weight: 700;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+}
+.orq-contador-carrito:empty { display: none; }
 .orq-header-acciones { display: flex; align-items: center; gap: var(--orq-e2); flex: 0 0 auto; }
 .orq-accion-completa { display: inline; }
 .orq-accion-corta { display: none; }
@@ -377,6 +394,9 @@ a:focus-visible,
   align-items: start;
   padding: var(--orq-e3);
   border-bottom: 1px solid var(--orq-lila);
+}
+.orq-linea-carrito {
+  grid-template-columns: minmax(160px, 2fr) minmax(140px, 1fr) minmax(110px, 1fr) 90px 90px 44px;
 }
 .orq-linea-cabecera {
   color: var(--orq-anulada) !important;

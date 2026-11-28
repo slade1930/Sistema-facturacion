@@ -1,6 +1,6 @@
 from typing import Any
 
-from nicegui import ui
+from nicegui import app, ui
 
 from components.forms import boton_enlace, mostrar_error
 from components.layout import montar_layout
@@ -11,6 +11,7 @@ from components.shared import (
     total_animado,
 )
 from state.cliente_api import ClienteApi, ErrorApi
+from state.sesion import conectar_storage
 
 cliente = ClienteApi()
 
@@ -53,7 +54,8 @@ def _valor(datos: dict[str, Any], clave: str) -> str:
 
 
 @ui.page("/pedidos/detalle")
-def pagina_detalle_pedido(pedido_id: int | None = None) -> None:
+async def pagina_detalle_pedido(pedido_id: int | None = None) -> None:
+    await conectar_storage()
     titulo = (
         f"Pedido #{pedido_id}"
         if pedido_id is not None
@@ -75,8 +77,8 @@ def pagina_detalle_pedido(pedido_id: int | None = None) -> None:
         if pedido_id is None:
             with contenido:
                 estado_vacio(
-                    "Elegí un pedido desde la lista para ver el detalle.",
-                    "Volvé a pedidos por facturar para continuar.",
+                    "Elige un pedido desde la lista para ver el detalle.",
+                    "Vuelve a pedidos por facturar para continuar.",
                 )
                 boton_enlace(
                     "Ver pedidos por facturar",
@@ -174,3 +176,8 @@ def pagina_detalle_pedido(pedido_id: int | None = None) -> None:
                 )
 
     cargar()
+
+    aviso = app.storage.tab.pop("aviso", None)
+    if aviso:
+        with mensajes:
+            ui.label(str(aviso)).classes("text-positive")
