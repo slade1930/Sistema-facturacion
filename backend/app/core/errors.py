@@ -40,12 +40,22 @@ def manejar_no_encontrado(request, exc):
 
 
 def manejar_validacion(request, exc: RequestValidationError):
+    # Los errores de Pydantic incluyen el valor enviado (`input`) y contexto
+    # interno: publicarlo devolvería contraseñas o tokens en la respuesta.
+    errores = [
+        {
+            "type": error.get("type"),
+            "loc": error.get("loc"),
+            "msg": error.get("msg"),
+        }
+        for error in exc.errors()
+    ]
     return JSONResponse(
         status_code=422,
         content={
             "detail": "Datos de entrada inválidos.",
             "code": "VALIDATION_ERROR",
-            "errors": jsonable_encoder(exc.errors()),
+            "errors": jsonable_encoder(errores),
         },
     )
 
