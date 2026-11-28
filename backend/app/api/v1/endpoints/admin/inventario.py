@@ -1,16 +1,21 @@
 """Inventario global y movimientos. Rol admin; etapa A."""
 
+from datetime import date
+
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 
 from app.api.v1.deps import Actor, get_actor, get_db, requiere_admin, requiere_auth
 from app.models.catalogo import Producto
+from app.models.inventario import TipoMovimiento
 from app.repositories.inventario import InventarioRepository
 from app.schemas.admin import (
     InventarioActualizar,
     InventarioRead,
     MovimientoInventarioRead,
 )
+from app.schemas.common import Pagina
+from app.services import metricas
 from app.services.inventario import ajustar
 
 router = APIRouter(
@@ -42,6 +47,22 @@ def listar_inventario(
         _leer(fila)
         for fila in InventarioRepository(db).listar(desplazamiento, limite)
     ]
+
+
+@router.get("/movimientos", response_model=Pagina[MovimientoInventarioRead])
+def listar_movimientos_globales(
+    producto_id: int | None = Query(default=None, ge=1),
+    tipo: TipoMovimiento | None = Query(default=None),
+    desde: date | None = Query(default=None),
+    hasta: date | None = Query(default=None),
+    desplazamiento: int = Query(default=0, ge=0),
+    limite: int = Query(default=20, ge=1, le=100),
+    db: Session = Depends(get_db),
+):
+    inicio, fin = metricas.rango(desde, hasta)
+    return metricas.listar_movimientos(
+        db, producto_id, tipo, inicio, fin, desplazamiento, limite
+    )
 
 
 @router.put("/{producto_id}", response_model=InventarioRead)
