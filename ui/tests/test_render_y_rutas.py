@@ -1,4 +1,5 @@
 import importlib
+import importlib.util
 import sys
 from pathlib import Path
 
@@ -40,6 +41,26 @@ RUTAS_ESPERADAS = {
 }
 
 
+def _cargar_app() -> object:
+    """Carga `app.py` por ruta: evita confundirlo con el paquete `app` del contenedor."""
+    nombre = "orquidea_app"
+    if nombre in sys.modules:
+        return sys.modules[nombre]
+    ruta = Path(__file__).resolve().parents[1] / "app.py"
+    especificacion = importlib.util.spec_from_file_location(nombre, ruta)
+    if especificacion is None or especificacion.loader is None:
+        raise RuntimeError("No se pudo cargar la interfaz.")
+    modulo = importlib.util.module_from_spec(especificacion)
+    sys.modules[nombre] = modulo
+    ejecutar = ui.run
+    ui.run = lambda *args, **kwargs: None
+    try:
+        especificacion.loader.exec_module(modulo)
+    finally:
+        ui.run = ejecutar
+    return modulo
+
+
 def _establecer_input(user: User, etiqueta: str, valor: str) -> None:
     elemento = next(
         elemento
@@ -52,7 +73,7 @@ def _establecer_input(user: User, etiqueta: str, valor: str) -> None:
 
 def test_app_registra_todas_las_rutas(monkeypatch):
     monkeypatch.setattr(ui, "run", lambda *args, **kwargs: None)
-    importlib.import_module("app")
+    _cargar_app()
 
     rutas_registradas = {
         ruta
@@ -67,13 +88,13 @@ def test_app_registra_todas_las_rutas(monkeypatch):
 
 @pytest.mark.anyio
 async def test_inicio_renderiza_titulo_y_acciones():
-    app = importlib.import_module("app")
+    app = _cargar_app()
 
     async with user_simulation(root=app.inicio) as user:
         await user.open("/")
-        await user.should_see("Facturación")
-        await user.should_see("Probar /health")
-        await user.should_see("API docs")
+        await user.should_see("Tu facturación, en orden")
+        await user.should_see("¿Qué quieres hacer?")
+        await user.should_see("Verificación pública")
 
 
 @pytest.mark.anyio
@@ -92,11 +113,11 @@ async def test_nueva_factura_renderiza_errors_de_validacion(monkeypatch):
         await user.open("/")
         _establecer_input(user, "Cliente", "Cliente de prueba")
         _establecer_input(user, "Descripción", "Servicio")
-        user.find("Emitir factura").click()
+        user.find(kind=ui.button, content="Emitir factura").click()
 
-        await user.should_see("VALIDATION_ERROR: Datos inválidos.")
-        await user.should_see("body.cliente_nombre: Field required")
-        await user.should_see("body.lineas: List should have at least 1 item")
+        await user.should_see("Datos inválidos.")
+        await user.should_see("Cliente: falta este dato.")
+        await user.should_see("Líneas: agregá al menos una línea.")
 
 
 @pytest.mark.anyio
@@ -117,9 +138,9 @@ async def test_verificar_renderiza_errors_de_validacion(monkeypatch):
         _establecer_input(user, "Código de verificación", "abc123")
         user.find(kind=ui.button, content="Verificar").click()
 
-        await user.should_see("VALIDATION_ERROR: Datos inválidos.")
-        await user.should_see("path.numero_serie: Field required")
-        await user.should_see("path.codigo: Field required")
+        await user.should_see("Datos inválidos.")
+        await user.should_see("Número de serie: falta este dato.")
+        await user.should_see("Código de verificación: falta este dato.")
 
 
 @pytest.mark.anyio
@@ -143,9 +164,9 @@ async def test_configuracion_renderiza_errors_de_validacion(monkeypatch):
         await user.open("/")
         user.find("Guardar").click()
 
-        await user.should_see("VALIDATION_ERROR: Datos inválidos.")
-        await user.should_see(str(errores[0]))
-        await user.should_see(str(errores[1]))
+        await user.should_see("Datos inválidos.")
+        await user.should_see("RUC: falta este dato.")
+        await user.should_see("Empresa: falta este dato.")
 
 
 @pytest.mark.anyio
@@ -199,7 +220,7 @@ async def test_historial_renderiza_facturas_y_resumen(monkeypatch):
 
     async with user_simulation(root=historial.pagina_historial) as user:
         await user.open("/")
-        await user.should_see("Historial de facturas")
+        await user.should_see("Facturas emitidas")
         await user.should_see("Cliente")
         await user.should_see("Buscar")
         await user.should_see("Mostrando 1-1 de 1")
@@ -351,6 +372,6 @@ async def test_convertir_pedido_muestra_detail_code_y_errores_422(monkeypatch):
         root=lambda: convertir_a_factura.pagina_convertir(pedido_id=12)
     ) as user:
         await user.open("/")
-        await user.should_see("VALIDATION_ERROR: No se puede procesar el pedido.")
-        await user.should_see(str(errores[0]))
-        await user.should_see(str(errores[1]))
+        await user.should_see("No se puede procesar el pedido.")
+        await user.should_see("Pedido: Pedido inválido.")
+        await user.should_see("Estado: Estado no permitido.")
