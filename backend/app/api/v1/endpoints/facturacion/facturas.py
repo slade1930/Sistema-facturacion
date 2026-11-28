@@ -3,11 +3,12 @@ from datetime import date
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 
-from app.api.v1.deps import get_db, requiere_auth
+from app.api.v1.deps import Actor, get_actor, get_db, requiere_admin, requiere_auth
 from app.api.v1.endpoints.ml import anomalias as anomalias_api
 from app.models.facturacion import Factura, LineaFactura
 from app.repositories.facturacion import ContadorSerieRepository, FacturaRepository
 from app.schemas.facturacion import FacturaCreate, FacturaRead, LineaFacturaCreate
+from app.services.aislamiento import factura_visible, vincular_factura_a_cliente
 from app.services.ciclo_vida import duplicar_factura
 from app.services.totales import aplicar_totales
 from app.services.verificacion import generar_codigo_verificacion
@@ -47,7 +48,12 @@ def _obtener_o_404(db: Session, factura_id: int) -> Factura:
     return factura
 
 
-@router.post("", response_model=FacturaRead, status_code=status.HTTP_201_CREATED)
+@router.post(
+    "",
+    response_model=FacturaRead,
+    status_code=status.HTTP_201_CREATED,
+    dependencies=[Depends(requiere_admin)],
+)
 def crear_factura(datos: FacturaCreate, db: Session = Depends(get_db)):
     fecha = datos.fecha or date.today()
     numero_serie = ContadorSerieRepository.obtener_siguiente_numero(db, fecha.year)
@@ -62,6 +68,7 @@ def crear_factura(datos: FacturaCreate, db: Session = Depends(get_db)):
         }
     )
     factura = Factura(**valores, lineas=lineas)
+    vincular_factura_a_cliente(db, factura, factura.cliente_ruc)
 
     aplicar_totales(factura)
     factura.codigo_verificacion = generar_codigo_verificacion(
@@ -91,11 +98,19 @@ def crear_factura(datos: FacturaCreate, db: Session = Depends(get_db)):
 
 
 @router.get("/{factura_id}", response_model=FacturaRead)
-def obtener_factura(factura_id: int, db: Session = Depends(get_db)):
-    return _obtener_o_404(db, factura_id)
+def obtener_factura(
+    factura_id: int,
+    db: Session = Depends(get_db),
+    actor: Actor = Depends(get_actor),
+):
+    return factura_visible(db, actor, factura_id)
 
 
-@router.post("/{factura_id}/anular", response_model=FacturaRead)
+@router.post(
+    "/{factura_id}/anular",
+    response_model=FacturaRead,
+    dependencies=[Depends(requiere_admin)],
+)
 def anular_factura(factura_id: int, db: Session = Depends(get_db)):
     factura = _obtener_o_404(db, factura_id)
     FacturaRepository.anular(db, factura, commit=False)
@@ -108,6 +123,7 @@ def anular_factura(factura_id: int, db: Session = Depends(get_db)):
     "/{factura_id}/duplicar",
     response_model=FacturaRead,
     status_code=status.HTTP_201_CREATED,
+    dependencies=[Depends(requiere_admin)],
 )
 def duplicar_factura_endpoint(factura_id: int, db: Session = Depends(get_db)):
     factura = _obtener_o_404(db, factura_id)

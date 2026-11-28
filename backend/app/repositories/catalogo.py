@@ -44,10 +44,18 @@ class CategoriaRepository:
     def get_by_nombre(self, nombre: str) -> Categoria | None:
         return self.db.scalar(select(Categoria).where(Categoria.nombre == nombre))
 
-    def listar(self, busqueda: str | None = None, skip: int = 0, limit: int = 100):
+    def listar(
+        self,
+        busqueda: str | None = None,
+        skip: int = 0,
+        limit: int = 100,
+        sector: str | None = None,
+    ):
         stmt = select(Categoria)
         if busqueda:
             stmt = stmt.where(Categoria.nombre.ilike(f"%{busqueda}%"))
+        if sector is not None:
+            stmt = stmt.where(Categoria.sector == sector)
         return self.db.scalars(
             stmt.order_by(Categoria.nombre).offset(skip).limit(limit)
         ).all()
@@ -93,8 +101,11 @@ class ProductoRepository:
         solo_activos: bool = True,
         skip: int = 0,
         limit: int = 100,
+        sector: str | None = None,
     ):
         stmt = select(Producto)
+        if sector is not None:
+            stmt = stmt.join(Producto.categoria).where(Categoria.sector == sector)
         if solo_activos:
             stmt = stmt.where(Producto.estado_activo.is_(True))
         if categoria_id is not None:
@@ -139,8 +150,11 @@ class ClienteB2BRepository:
         solo_activos: bool = True,
         skip: int = 0,
         limit: int = 100,
+        cliente_id: int | None = None,
     ):
         stmt = select(ClienteB2B)
+        if cliente_id is not None:
+            stmt = stmt.where(ClienteB2B.id == cliente_id)
         if solo_activos:
             stmt = stmt.where(ClienteB2B.activo.is_(True))
         if busqueda:

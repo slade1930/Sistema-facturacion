@@ -3,14 +3,14 @@ from decimal import Decimal
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 
-from app.api.v1.deps import get_db, requiere_auth
+from app.api.v1.deps import Actor, get_actor, get_db, requiere_auth
 from app.models.catalogo import TipoEmpaque
-from app.repositories.catalogo import ProductoRepository
 from app.schemas.carrito import (
     CarritoCalcularRequest,
     CarritoCalcularResponse,
     CarritoLineaCalculo,
 )
+from app.services.aislamiento import producto_visible
 from app.services.pedidos import precio_de_presentacion, subtotal_linea
 from app.services.totales import calcular_totales
 
@@ -38,13 +38,16 @@ def _linea_para_totales(
 
 
 @router.post("/calcular", response_model=CarritoCalcularResponse)
-def calcular_carrito(datos: CarritoCalcularRequest, db: Session = Depends(get_db)):
-    repo = ProductoRepository(db)
+def calcular_carrito(
+    datos: CarritoCalcularRequest,
+    db: Session = Depends(get_db),
+    actor: Actor = Depends(get_actor),
+):
     lineas_calculo = []
     lineas_totales = []
 
     for item in datos.lineas:
-        producto = repo.get(item.producto_id)
+        producto = producto_visible(db, actor, item.producto_id)
         if producto is None:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,

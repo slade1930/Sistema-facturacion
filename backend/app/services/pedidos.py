@@ -428,6 +428,9 @@ def facturar_pedido_b2b(
 
     factura = Factura(**datos_factura)
 
+    # La factura queda ligada al cliente del pedido para que la empresa la vea.
+    factura.cliente_id = pedido.cliente_id
+
     # Asignar las lÃ­neas antes de aplicar los totales.
     factura.lineas = lineas_factura
     aplicar_totales(factura)

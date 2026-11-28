@@ -102,8 +102,11 @@ class FacturaRepository:
         cliente: Optional[str] = None,
         skip: int = 0,
         limit: int = 50,
+        cliente_id: Optional[int] = None,
     ) -> list[Factura]:
         stmt = select(Factura).options(selectinload(Factura.lineas))
+        if cliente_id is not None:
+            stmt = stmt.where(Factura.cliente_id == cliente_id)
 
         if estado is not None:
             stmt = stmt.where(Factura.estado == estado)

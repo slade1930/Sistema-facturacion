@@ -10,9 +10,11 @@ Decisiones de la etapa A: esqueleto, autenticación, roles, aislamiento, sectore
 
 La regla de oro es que ninguna empresa ve datos ni panel de otra. El aislamiento lo impone el backend desde el token; la interfaz solo muestra lo que el backend devuelve.
 
+En la API, un token de empresa filtra categorías y productos por sector, clientes, pedidos, facturas, historial y PDF por `cliente_id`. Un recurso ajeno responde 404. Cuando el cuerpo o la query contradicen al cliente del token, la respuesta es 403. Configuración, altas de catálogo y clientes, facturación manual, anulación, duplicación, listado de por facturar, facturación de pedidos y ML salvo recomendaciones responden 403 para empresa. Las recomendaciones de empresa usan solo sus pedidos y facturas y productos de su sector. `/verificar` sigue público porque valida un comprobante con número y código.
+
 ## Sectores
 
-Los sectores son `tecnologia`, `turismo` y `supermercado`. Cada categoría y cada empresa tiene un sector. Una empresa solo ve y puede comprar productos de categorías de su sector. Las categorías sin sector son invisibles para las empresas; siguen existiendo para el admin.
+Los sectores son `tecnologia`, `turismo` y `supermercado`. Cada categoría y cada empresa tiene un sector. Una empresa solo ve y puede comprar productos de categorías de su sector. Las categorías sin sector son invisibles para las empresas; siguen existiendo para el admin. El sector se envía en `sector` al crear o editar categorías y clientes; en el registro de empresa es obligatorio.
 
 ## Registro y contraseñas
 
@@ -30,7 +32,7 @@ El límite de intentos es de 5 fallos en 15 minutos, con bloqueo de 30 minutos, 
 
 La empresa elige productos, confirma y en una sola operación se crean el pedido y la factura: totales, ITBMS, número `FAC-AAAA-0001`, código de verificación y PDF. Quien emite es nuestro negocio (`configuracion_negocio`) a nombre de la empresa. No hay emisores múltiples ni series por empresa.
 
-Se reutilizan los servicios existentes de pedidos, totales, serie, verificación, PDF y ciclo de vida. No se reimplementan esos cálculos ni cambian sus firmas públicas. Una clave de idempotencia evita facturas duplicadas por doble clic.
+Se reutilizan los servicios existentes de pedidos, totales, serie, verificación, PDF y ciclo de vida. No se reimplementan esos cálculos ni cambian sus firmas públicas. Una clave de idempotencia evita facturas duplicadas por doble clic. La factura queda ligada al cliente del pedido mediante `cliente_id`; el backfill de la migración usó el pedido ligado y, si no lo había, un RUC exacto y único.
 
 Para descontar inventario se usa la conversión acordada: caja = cantidad × `unidades_por_caja`; unidad = cantidad; media caja = cantidad × `unidades_por_caja` / 2, con `Decimal` y sin redondear. Esta conversión es solo para existencias; los precios y totales siguen las reglas ya existentes y no dividen entre `unidades_por_caja`.
 

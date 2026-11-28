@@ -2,7 +2,7 @@
 from fastapi import APIRouter, Depends, File, HTTPException, UploadFile, status
 from sqlalchemy.orm import Session
 
-from app.api.v1.deps import requiere_auth
+from app.api.v1.deps import requiere_admin, requiere_auth
 from app.db.session import get_db
 from app.repositories.facturacion import ConfiguracionNegocioRepository
 from app.utils.storage import borrar_logo, guardar_logo
@@ -14,7 +14,7 @@ from app.schemas.facturacion import (
 router = APIRouter(
     prefix="/configuracion",
     tags=["Configuración"],
-    dependencies=[Depends(requiere_auth)],
+    dependencies=[Depends(requiere_auth), Depends(requiere_admin)],
 )
 
 

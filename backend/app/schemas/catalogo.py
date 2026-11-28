@@ -4,6 +4,8 @@ from typing import Annotated
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
+from app.models.catalogo import SectorEmpresa
+
 # Dinero: NUMERIC(14,2) en la base. Siempre Decimal, nunca float.
 Dinero = Annotated[Decimal, Field(ge=0, max_digits=14, decimal_places=2)]
 DineroCorto = Annotated[Decimal, Field(ge=0, max_digits=10, decimal_places=2)]
@@ -25,6 +27,7 @@ def _validar_imagen(valor: str | None) -> str | None:
 # ---------- Categoría ----------
 class CategoriaBase(BaseModel):
     nombre: str = Field(min_length=1, max_length=100)
+    sector: SectorEmpresa | None = None
 
 
 class CategoriaCreate(CategoriaBase):
@@ -33,6 +36,7 @@ class CategoriaCreate(CategoriaBase):
 
 class CategoriaUpdate(BaseModel):
     nombre: str | None = Field(default=None, min_length=1, max_length=100)
+    sector: SectorEmpresa | None = None
 
 
 class CategoriaRead(CategoriaBase):
@@ -103,6 +107,8 @@ class ClienteB2BBase(BaseModel):
     email_contacto: str = Field(min_length=3, max_length=254)
     telefono: str | None = Field(default=None, max_length=60)
     direccion: str | None = None
+    sucursal: str | None = Field(default=None, max_length=150)
+    sector: SectorEmpresa | None = None
     activo: bool = True
 
 
@@ -116,6 +122,8 @@ class ClienteB2BUpdate(BaseModel):
     email_contacto: str | None = Field(default=None, min_length=3, max_length=254)
     telefono: str | None = Field(default=None, max_length=60)
     direccion: str | None = None
+    sucursal: str | None = Field(default=None, max_length=150)
+    sector: SectorEmpresa | None = None
     activo: bool | None = None
 
 

@@ -50,6 +50,8 @@ Todos los errores usan el mismo cuerpo: `{"detail": "...", "code": "..."}`. Los 
 
 Las rutas de acceso son `POST /api/v1/auth/registro`, `POST /api/v1/auth/login`, `POST /api/v1/auth/logout`, `GET /api/v1/auth/yo` y `POST /api/v1/auth/cambiar-clave`. Registro y login son públicos; las demás necesitan `X-API-Key` y el token `Bearer`. Una API-Key válida sin token mantiene el comportamiento anterior solo para pruebas y procesos internos.
 
+Con un token de empresa, el backend filtra catálogo por sector y clientes, pedidos, facturas, historial y PDF por la empresa del token. Un recurso ajeno da 404; un cuerpo que contradiga al token da 403. La configuración, las altas de catálogo y clientes, la facturación manual, anular, duplicar, facturar pedidos y el ML salvo recomendaciones son solo para admin o sistema.
+
 El primer administrador se crea dentro del contenedor con:
 
 ```bash

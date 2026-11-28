@@ -7,7 +7,7 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
-from app.api.v1.deps import get_db, requiere_auth
+from app.api.v1.deps import get_db, requiere_admin, requiere_auth
 from app.ml.modelos import anomalias as modelo
 from app.models.facturacion import Factura
 from app.repositories.facturacion import FacturaRepository
@@ -17,7 +17,7 @@ logger = logging.getLogger(__name__)
 router = APIRouter(
     prefix="/ml/anomalias",
     tags=["ml"],
-    dependencies=[Depends(requiere_auth)],
+    dependencies=[Depends(requiere_auth), Depends(requiere_admin)],
 )
 
 

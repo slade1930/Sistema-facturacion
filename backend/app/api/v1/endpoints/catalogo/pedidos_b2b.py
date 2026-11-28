@@ -4,9 +4,10 @@ from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
-from app.api.v1.deps import get_db, requiere_auth
+from app.api.v1.deps import Actor, get_actor, get_db, requiere_auth
 from app.models.catalogo import EstadoPedido, PedidoB2B
 from app.repositories.pedidos import IntegridadPedidoError, PedidoB2BRepository
+from app.services.aislamiento import cliente_efectivo, pedido_visible
 from app.schemas.common import Pagina
 from app.schemas.pedidos import PedidoB2BCreate, PedidoB2BRead
 
@@ -34,7 +35,14 @@ def _condiciones(
     response_model=PedidoB2BRead,
     status_code=status.HTTP_201_CREATED,
 )
-def crear_pedido(datos: PedidoB2BCreate, db: Session = Depends(get_db)):
+def crear_pedido(
+    datos: PedidoB2BCreate,
+    db: Session = Depends(get_db),
+    actor: Actor = Depends(get_actor),
+):
+    cliente_id = cliente_efectivo(actor, datos.cliente_id)
+    if actor.es_empresa:
+        datos = datos.model_copy(update={"cliente_id": cliente_id})
     repo = PedidoB2BRepository(db)
     try:
         pedido = repo.crear(datos, commit=False)
@@ -78,12 +86,9 @@ def listar_pedidos(
 
 
 @router.get("/{pedido_id:int}", response_model=PedidoB2BRead)
-def obtener_pedido(pedido_id: int, db: Session = Depends(get_db)):
-    repo = PedidoB2BRepository(db)
-    pedido = repo.get_con_lineas(pedido_id)
-    if pedido is None:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Pedido no encontrado.",
-        )
-    return pedido
+def obtener_pedido(
+    pedido_id: int,
+    db: Session = Depends(get_db),
+    actor: Actor = Depends(get_actor),
+):
+    return pedido_visible(db, actor, pedido_id)

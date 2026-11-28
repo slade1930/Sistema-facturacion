@@ -10,14 +10,14 @@ from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
-from app.api.v1.deps import get_db, requiere_auth
+from app.api.v1.deps import get_db, requiere_admin, requiere_auth
 from app.ml.asistente import catalogo, intenciones
 from app.ml.modelos import asistente as modelo
 
 router = APIRouter(
     prefix="/ml/asistente",
     tags=["ml"],
-    dependencies=[Depends(requiere_auth)],
+    dependencies=[Depends(requiere_auth), Depends(requiere_admin)],
 )
 
 NOMBRE_LINEA_BASE = "linea-base-palabras-clave"

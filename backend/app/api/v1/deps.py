@@ -14,6 +14,7 @@ from app.models.seguridad import RolCuenta
 from app.services.auth import ip_de_la_peticion, obtener_sesion_valida
 
 _api_key_header = APIKeyHeader(name=API_KEY_HEADER, auto_error=False)
+SIN_PERMISO = "No tienes permiso para esta acción."
 
 
 @dataclass(frozen=True)
@@ -23,6 +24,7 @@ class Actor:
     cliente_id: int | None = None
     nombre_usuario: str | None = None
     token: str | None = None
+    sector: str | None = None
 
     @property
     def es_sistema(self) -> bool:
@@ -74,12 +76,17 @@ def get_actor(
             rol="admin", cuenta_id=cuenta.id, nombre_usuario=cuenta.nombre_usuario, token=token
         )
     if cuenta.rol == RolCuenta.EMPRESA and cuenta.cliente_id is not None:
+        cliente = cuenta.cliente
+        sector = None
+        if cliente is not None and cliente.sector is not None:
+            sector = getattr(cliente.sector, "value", cliente.sector)
         return Actor(
             rol="empresa",
             cuenta_id=cuenta.id,
             cliente_id=cuenta.cliente_id,
             nombre_usuario=cuenta.nombre_usuario,
             token=token,
+            sector=sector,
         )
     raise HTTPException(
         status_code=status.HTTP_401_UNAUTHORIZED,
@@ -106,6 +113,15 @@ def requiere_empresa(actor: Actor = Depends(get_actor)) -> Actor:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Esta acción es solo para empresas.",
+        )
+    return actor
+
+
+def requiere_empresa_o_admin(actor: Actor = Depends(get_actor)) -> Actor:
+    """Recomendaciones: empresa ve lo suyo; admin y sistema, todo."""
+    if not (actor.es_empresa or actor.es_admin):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN, detail=SIN_PERMISO
         )
     return actor
 

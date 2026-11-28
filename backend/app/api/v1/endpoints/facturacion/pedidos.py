@@ -2,12 +2,13 @@ from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session, selectinload
 
-from app.api.v1.deps import get_db, requiere_auth
+from app.api.v1.deps import Actor, get_actor, get_db, requiere_admin, requiere_auth
 from app.models.catalogo import EstadoPedido, PedidoB2B
 from app.repositories.pedidos import PedidoB2BRepository
 from app.schemas.common import Pagina
 from app.schemas.facturacion import FacturaRead
 from app.schemas.pedidos import PedidoB2BRead
+from app.services.aislamiento import cliente_efectivo
 from app.services.pedidos import facturar_pedido_b2b
 
 router = APIRouter(
@@ -24,7 +25,9 @@ def listar_pedidos(
     limite: int = Query(default=20, ge=1, le=100),
     desplazamiento: int = Query(default=0, ge=0),
     db: Session = Depends(get_db),
+    actor: Actor = Depends(get_actor),
 ):
+    cliente_id = cliente_efectivo(actor, cliente_id)
     condiciones = []
     if cliente_id is not None:
         condiciones.append(PedidoB2B.cliente_id == cliente_id)
@@ -51,7 +54,11 @@ def listar_pedidos(
     )
 
 
-@router.get("/por-facturar", response_model=list[PedidoB2BRead])
+@router.get(
+    "/por-facturar",
+    response_model=list[PedidoB2BRead],
+    dependencies=[Depends(requiere_admin)],
+)
 def listar_pedidos_por_facturar(
     limite: int = Query(default=100, ge=1, le=500),
     db: Session = Depends(get_db),
@@ -77,10 +84,10 @@ def listar_pedidos_por_facturar(
     "/{pedido_id}/facturar",
     response_model=FacturaRead,
     status_code=status.HTTP_201_CREATED,
+    dependencies=[Depends(requiere_admin)],
 )
 def facturar_pedido(pedido_id: int, db: Session = Depends(get_db)):
-    repo = PedidoB2BRepository(db)
-    pedido = repo.get(pedido_id)
+    pedido = PedidoB2BRepository(db).get(pedido_id)
     if pedido is None:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
