@@ -671,6 +671,31 @@ a:focus-visible,
   background: var(--orq-lila);
   animation: orq-pulso 1.2s ease-in-out infinite;
 }
+.orq-logo-vista {
+  min-height: 112px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--orq-e4);
+  background: var(--orq-petalo);
+  border: 1px dashed var(--orq-lila-borde);
+  border-radius: var(--orq-radio-panel);
+}
+.orq-logo-vista img {
+  max-height: 88px;
+  max-width: 100%;
+  object-fit: contain;
+}
+.orq-ml-estado {
+  display: inline-flex;
+  align-items: center;
+  padding: var(--orq-e1) var(--orq-e3);
+  background: var(--orq-lila);
+  color: var(--orq-fucsia-tinta) !important;
+  border-radius: var(--orq-radio-control);
+  font-size: 12px !important;
+  font-weight: 700 !important;
+}
 
 /* Movimiento */
 @keyframes orq-cabecera {
