@@ -5,7 +5,7 @@ from urllib.parse import quote
 import httpx
 from nicegui import ui
 
-from components.admin.seguridad import exigir_admin
+from components.admin.seguridad import conectar_sesion, exigir_admin
 from components.forms import (
     barra_acciones,
     boton_orquidea,
@@ -191,7 +191,8 @@ def _errores_por_campo(error: ErrorApi) -> dict[str, str]:
 
 
 @ui.page("/configuracion")
-def pagina_configuracion() -> None:
+async def pagina_configuracion() -> None:
+    await conectar_sesion()
     if not exigir_admin():
         return
     montar_layout("Configuración del negocio", ruta_activa="/configuracion")

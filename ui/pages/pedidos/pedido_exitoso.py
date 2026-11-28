@@ -3,6 +3,7 @@ from typing import Any
 from nicegui import ui
 
 from components.forms import boton_enlace, mostrar_error
+from components.admin.seguridad import conectar_sesion
 from components.layout import montar_layout
 from components.shared import estado_vacio, sello_estado, total_animado
 from pages.pedidos.convertir_a_factura import obtener_pedido
@@ -17,7 +18,8 @@ def _valor(datos: dict[str, Any], clave: str) -> str:
 
 
 @ui.page("/pedidos/exitoso")
-def pagina_pedido_exitoso(pedido_id: int | None = None) -> None:
+async def pagina_pedido_exitoso(pedido_id: int | None = None) -> None:
+    await conectar_sesion()
     titulo = (
         f"Pedido #{pedido_id} creado"
         if pedido_id is not None

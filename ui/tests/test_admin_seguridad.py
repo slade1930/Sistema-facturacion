@@ -1,15 +1,18 @@
 import sys
 from pathlib import Path
 
+import pytest
 from nicegui import ui
+from nicegui.testing import user_simulation
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-from components import portal, sesion
+from components import layout, portal, sesion
 from components.admin import api as api_admin
 from components.admin import menu, seguridad
 from components.admin.formato import VACIO, dinero, fecha, numero, texto
 from components.admin.constantes import rango_periodo
+from pages.facturacion import configuracion, nueva
 from state import auth, cliente_api
 
 
@@ -89,6 +92,53 @@ def test_admin_guardian_admin_puede_continuar(monkeypatch):
     assert destinos == []
 
 
+@pytest.mark.anyio
+@pytest.mark.parametrize(
+    "modulo, pagina, titulo, datos",
+    [
+        (nueva, nueva.pagina_nueva, "Nueva factura", None),
+        (
+            configuracion,
+            configuracion.pagina_configuracion,
+            "Configuración del negocio",
+            {},
+        ),
+    ],
+)
+async def test_paginas_compartidas_esperan_la_sesion(
+    monkeypatch, modulo, pagina, titulo, datos
+):
+    """Sin esperar la pestaña, el guardián veía un token ausente y volvía al login."""
+    destinos: list[str] = []
+    estado: dict[str, str | bool | None] = {"token": None, "conectado": False}
+    monkeypatch.setattr(ui.navigate, "to", lambda destino: destinos.append(destino))
+    monkeypatch.setattr(auth, "token", lambda: estado["token"], raising=False)
+    monkeypatch.setattr(
+        auth, "datos_usuario", lambda: {"rol": "admin"}, raising=False
+    )
+
+    async def conectar() -> None:
+        estado["conectado"] = True
+        estado["token"] = "token-de-la-pestaña"
+
+    monkeypatch.setattr(modulo, "conectar_sesion", conectar, raising=False)
+    monkeypatch.setattr(modulo, "listar_clientes", lambda cliente: [], raising=False)
+    monkeypatch.setattr(
+        modulo, "obtener_configuracion", lambda cliente: datos or {}, raising=False
+    )
+    monkeypatch.setattr(
+        modulo, "_recomendaciones_pendientes", lambda cliente: False, raising=False
+    )
+
+    async with user_simulation(root=pagina) as user:
+        await user.open("/")
+        await user.should_see(titulo)
+
+    assert estado["conectado"] is True
+    assert estado["token"] == "token-de-la-pestaña"
+    assert destinos == []
+
+
 def test_admin_cliente_admin_usa_cliente_de_la_sesion(monkeypatch):
     class ClienteSesion:
         pass
@@ -152,6 +202,73 @@ def test_admin_y_portal_comparten_la_marca_pero_no_los_enlaces():
     assert "/admin/" not in navegacion_portal
     assert "Auditoría" not in navegacion_portal
     assert "Panel" not in navegacion_portal
+
+
+def test_admin_y_portal_usan_la_misma_cabecera():
+    cabecera_admin = sesion.cabecera_html(
+        sesion.SECCIONES_ADMIN,
+        "/admin/panel",
+        href="/admin/panel",
+        etiqueta="Ir al panel",
+        accion=sesion.ACCION_EMITIR,
+        directas=sesion.DIRECTAS_ADMIN,
+        prefijo="orq-admin",
+    )
+    cabecera_portal = sesion.cabecera_html(
+        sesion.SECCIONES_PORTAL,
+        "/portal/inicio",
+        href="/portal/inicio",
+        etiqueta="Ir al inicio",
+        accion=sesion.ACCION_PEDIDO,
+        prefijo="orq-portal",
+    )
+
+    for cabecera in (cabecera_admin, cabecera_portal):
+        assert "orq-header-inner" in cabecera
+        assert "orq-petala" in cabecera
+        assert "Orquídea" in cabecera
+        assert "orq-nav-escritorio" in cabecera
+        assert "orq-header-acciones" in cabecera
+        assert "orq-hamburguesa" in cabecera
+        assert "orq-cajon" in cabecera
+
+    assert "Administración" not in cabecera_admin
+    assert "Portal de empresas" not in cabecera_portal
+
+
+@pytest.mark.anyio
+async def test_paginas_compartidas_muestran_la_cabecera_del_admin(monkeypatch):
+    """Las rutas compartidas y el panel usan exactamente el mismo encabezado."""
+    monkeypatch.setattr(auth, "token", lambda: "token-admin", raising=False)
+    monkeypatch.setattr(
+        auth, "datos_usuario", lambda: {"rol": "admin"}, raising=False
+    )
+    monkeypatch.setattr(layout, "nombre_negocio", lambda: "", raising=False)
+    monkeypatch.setattr(menu, "nombre_negocio", lambda: "", raising=False)
+
+    async def cabecera_de(root):
+        async with user_simulation(root=root) as user:
+            await user.open("/")
+            elementos = [
+                elemento
+                for elemento in user.find(ui.html).elements
+                if "orq-header-inner" in elemento.props.get("innerHTML", "")
+            ]
+            assert len(elementos) == 1
+            return elementos[0]
+
+    cabecera_panel = await cabecera_de(
+        lambda: menu.montar_admin("Configuración", ruta_activa="/configuracion")
+    )
+    cabecera_compartida = await cabecera_de(
+        lambda: layout.montar_layout(None, ruta_activa="/configuracion")
+    )
+
+    assert (
+        cabecera_compartida.props["innerHTML"] == cabecera_panel.props["innerHTML"]
+    )
+    assert "orq-admin" in cabecera_compartida._classes
+    assert "orq-admin-enlace" in cabecera_compartida.props["innerHTML"]
 
 
 def test_admin_formato_muestra_lo_que_entrega_el_backend():

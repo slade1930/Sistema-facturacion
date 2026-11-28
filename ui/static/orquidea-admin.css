@@ -1,14 +1,5 @@
 /* ORQUÍDEA · administración: solo lo específico del panel global. */
 
-.orq-admin .orq-header-inner {
-  max-width: 1440px;
-  margin: 0 auto;
-}
-
-.orq-admin .orq-nombre-marca {
-  white-space: nowrap;
-}
-
 .orq-admin-enlace {
   align-items: center;
   display: inline-flex;

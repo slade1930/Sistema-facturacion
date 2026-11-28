@@ -10,6 +10,7 @@ from components.forms import (
     mostrar_error,
     notificar,
 )
+from components.admin.seguridad import conectar_sesion
 from components.layout import montar_layout
 from components.shared import ticket_factura
 from state.cliente_api import ClienteApi, ErrorApi
@@ -54,7 +55,8 @@ def _valor(datos: dict[str, Any], clave: str) -> str:
 
 
 @ui.page("/facturacion/detalle")
-def pagina_detalle(factura_id: int | None = None) -> None:
+async def pagina_detalle(factura_id: int | None = None) -> None:
+    await conectar_sesion()
     inicial = factura_id
     if inicial is None and sesion.ultima_factura:
         inicial = sesion.ultima_factura.get("id")
