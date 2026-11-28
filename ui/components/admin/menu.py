@@ -1,6 +1,6 @@
 """Encabezado y navegación del administrador; etapa C2.
 
-Reutiliza las clases ORQUÍDEA del menú superior y carga solo el CSS propio
+Reutiliza las clases ORQUIDEA del menú superior y carga solo el CSS propio
 de administración desde este módulo.
 """
 
