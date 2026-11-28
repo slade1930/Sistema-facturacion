@@ -1,5 +1,6 @@
 from fastapi import APIRouter
 
+from app.api.v1.endpoints.auth import router as auth_router
 from app.api.v1.endpoints.catalogo import api as catalogo_api
 from app.api.v1.endpoints.catalogo import carrito, catalogo, pedidos_b2b
 from app.api.v1.endpoints.facturacion import (
@@ -17,6 +18,7 @@ from app.api.v1.endpoints.ml import recomendaciones as recomendaciones_api
 
 router = APIRouter()
 
+router.include_router(auth_router)
 router.include_router(facturas.router)
 router.include_router(historial.router)
 router.include_router(verificar.router)

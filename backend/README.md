@@ -44,7 +44,19 @@ Hay tres migraciones en `alembic/versions/`: `20261123_0001_inicial.py`, `202611
 
 Salvo las dos rutas públicas, la API pide la cabecera `X-API-Key`. Las públicas son `GET /health` y `GET /api/v1/verificar/{numero_serie}/{codigo}`.
 
-Todos los errores usan el mismo cuerpo: `{"detail": "...", "code": "..."}`. Los códigos que salen hoy son `UNAUTHORIZED`, `NOT_FOUND`, `CONFLICT` y `VALIDATION_ERROR`.
+Todos los errores usan el mismo cuerpo: `{"detail": "...", "code": "..."}`. Los códigos que salen hoy son `UNAUTHORIZED`, `FORBIDDEN`, `NOT_FOUND`, `CONFLICT`, `VALIDATION_ERROR` y `RATE_LIMITED`.
+
+## Portal de empresas
+
+Las rutas de acceso son `POST /api/v1/auth/registro`, `POST /api/v1/auth/login`, `POST /api/v1/auth/logout`, `GET /api/v1/auth/yo` y `POST /api/v1/auth/cambiar-clave`. Registro y login son públicos; las demás necesitan `X-API-Key` y el token `Bearer`. Una API-Key válida sin token mantiene el comportamiento anterior solo para pruebas y procesos internos.
+
+El primer administrador se crea dentro del contenedor con:
+
+```bash
+python -m app.cli.crear_admin --usuario admin
+```
+
+Define `ADMIN_PASSWORD` en tu entorno antes de ejecutarla. La contraseña nunca se pasa como argumento: se lee de esa variable o se pide por consola. Debe tener entre 8 y 64 caracteres, al menos una mayúscula y al menos un número. Agrega `ADMIN_PASSWORD` a tu `.env` local; no hay valor por defecto en el repositorio. La cuenta queda marcada para cambiar la clave en el primer acceso.
 
 ## Rutas reales de la API (32)
 

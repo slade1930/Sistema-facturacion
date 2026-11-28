@@ -8,9 +8,11 @@ from app.repositories.catalogo import IntegridadError
 from app.services.ciclo_vida import FacturaYaAnuladaError
 CODIGOS = {
     401: "UNAUTHORIZED",
+    403: "FORBIDDEN",
     404: "NOT_FOUND",
     409: "CONFLICT",
     422: "VALIDATION_ERROR",
+    429: "RATE_LIMITED",
 }
 
 
