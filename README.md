@@ -34,6 +34,24 @@ curl http://localhost:8000/health
 
 Si algo falla, revisá [errores comunes](docs/despliegue/errores-comunes.md).
 
+## Crear el administrador
+
+1. Definí tus propios valores en `.env`. Para la creación podés exportar `ADMIN_PASSWORD` en tu terminal; si no la definís, la CLI te la pedirá de forma interactiva. No escribas ese valor en un archivo versionado ni lo pases como argumento.
+2. Con los contenedores levantados, ejecutá:
+
+   ```bash
+   docker compose exec backend python -m app.cli.crear_admin --usuario nombre-elegido
+   ```
+
+3. Entrá a `http://localhost:8080/login`, iniciá sesión con ese usuario y completá el cambio de clave que se pide en el primer acceso.
+
+## Registrar una empresa de prueba
+
+1. Abrí `http://localhost:8080/registro`.
+2. Completá nombre de la empresa, RUC, correo, dirección, teléfono, sucursal, sector (`tecnologia`, `turismo` o `supermercado`) y una contraseña de tu elección que cumpla la política: entre 8 y 64 caracteres, con al menos una mayúscula y un número. No hay valores por defecto.
+3. Al guardar se inicia sesión y se abre `/portal/inicio`. En `/portal/catalogo` solo aparecen productos de tu sector.
+4. Agregá productos al carrito y confirmá la compra. El pedido y la factura se crean juntos; la factura aparece en `/portal/facturas` con detalle y descarga de PDF.
+
 ## Comandos útiles
 
 ```bash
