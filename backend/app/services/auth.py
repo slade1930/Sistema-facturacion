@@ -8,6 +8,7 @@ from collections import defaultdict
 from datetime import datetime, timedelta, timezone
 from functools import lru_cache
 
+from sqlalchemy import delete, or_
 from sqlalchemy.orm import Session
 
 from app.core.config import settings
@@ -24,10 +25,13 @@ ACTUALIZACION_MINIMA = timedelta(minutes=1)
 MAX_FALLOS = 5
 VENTANA_FALLOS = timedelta(minutes=15)
 TIEMPO_BLOQUEO = timedelta(minutes=30)
+ANTIGUEDAD_SESION = timedelta(days=7)
+CADENCIA_LIMPIEZA = timedelta(hours=1)
 
 # Límite en memoria: por proceso, no compartido entre réplicas del backend.
 _intentos: dict[tuple[str, str], list[datetime]] = defaultdict(list)
 _bloqueos: dict[tuple[str, str], datetime] = {}
+_ultima_limpieza_sesiones: datetime | None = None
 
 
 def ahora_utc() -> datetime:
@@ -164,6 +168,33 @@ def obtener_sesion_valida(
         # cambios parciales de la petición en esta sesión.
         db.commit()
     return cuenta, sesion
+
+
+def limpiar_sesiones_vencidas(
+    db: Session, ahora: datetime | None = None
+) -> int:
+    """Borra sesiones expiradas o revocadas con más de siete días de antigüedad.
+
+    La cadencia es por proceso: como máximo una limpieza por hora. No hace
+    commit; lo incluye la transacción que la invoca. Devuelve filas borradas.
+    """
+    global _ultima_limpieza_sesiones
+    ahora = _utc(ahora or ahora_utc())
+    if (
+        _ultima_limpieza_sesiones is not None
+        and ahora - _ultima_limpieza_sesiones < CADENCIA_LIMPIEZA
+    ):
+        return 0
+
+    corte = ahora - ANTIGUEDAD_SESION
+    resultado = db.execute(
+        delete(Sesion).where(
+            Sesion.creada_en < corte,
+            or_(Sesion.expira_en < ahora, Sesion.revocada.is_(True)),
+        )
+    )
+    _ultima_limpieza_sesiones = ahora
+    return resultado.rowcount or 0
 
 
 def cerrar_sesion(db: Session, token: str) -> None:

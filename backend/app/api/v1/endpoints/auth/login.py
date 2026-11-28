@@ -11,6 +11,7 @@ from app.schemas.empresa import resumen_empresa
 from app.services.auth import (
     crear_sesion,
     limpiar_intentos,
+    limpiar_sesiones_vencidas,
     normalizar_nombre_usuario,
     registrar_auditoria,
     registrar_fallo,
@@ -29,6 +30,7 @@ def iniciar_sesion(
     request: Request,
     db: Session = Depends(get_db),
 ):
+    limpiar_sesiones_vencidas(db)
     ip = ip_para_limite(request, request.headers.get(API_KEY_HEADER))
     nombre = normalizar_nombre_usuario(datos.nombre_empresa)
     restante = segundos_bloqueo(ip, nombre)
