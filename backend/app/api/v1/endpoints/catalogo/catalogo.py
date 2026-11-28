@@ -2,7 +2,7 @@
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.orm import Session
 
-from app.api.v1.deps import requiere_auth
+from app.api.v1.deps import Actor, get_actor, requiere_admin, requiere_auth
 from app.db.session import get_db
 from app.repositories.catalogo import (
     CategoriaRepository,
@@ -20,6 +20,11 @@ from app.schemas.catalogo import (
     ProductoCreate,
     ProductoRead,
     ProductoUpdate,
+)
+from app.services.aislamiento import (
+    categoria_visible,
+    cliente_visible,
+    producto_visible,
 )
 
 router = APIRouter(
@@ -39,30 +44,30 @@ def listar_categorias(
     desplazamiento: int = Query(default=0, ge=0),
     limite: int = Query(default=100, ge=1, le=100),
     db: Session = Depends(get_db),
+    actor: Actor = Depends(get_actor),
 ):
-    return CategoriaRepository(db).listar(busqueda, desplazamiento, limite)
+    return CategoriaRepository(db).listar(
+        busqueda,
+        desplazamiento,
+        limite,
+        sector=actor.sector if actor.es_empresa else None,
+    )
 
 
 @router.get("/categorias/{categoria_id}", response_model=CategoriaRead)
 def obtener_categoria(
     categoria_id: int,
     db: Session = Depends(get_db),
+    actor: Actor = Depends(get_actor),
 ):
-    categoria = CategoriaRepository(db).get(categoria_id)
-
-    if categoria is None:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Categoría no encontrada.",
-        )
-
-    return categoria
+    return categoria_visible(db, actor, categoria_id)
 
 
 @router.post(
     "/categorias",
     response_model=CategoriaRead,
     status_code=status.HTTP_201_CREATED,
+    dependencies=[Depends(requiere_admin)],
 )
 def crear_categoria(
     datos: CategoriaCreate,
@@ -83,7 +88,11 @@ def crear_categoria(
         ) from exc
 
 
-@router.put("/categorias/{categoria_id}", response_model=CategoriaRead)
+@router.put(
+    "/categorias/{categoria_id}",
+    response_model=CategoriaRead,
+    dependencies=[Depends(requiere_admin)],
+)
 def actualizar_categoria(
     categoria_id: int,
     datos: CategoriaUpdate,
@@ -123,6 +132,7 @@ def listar_productos(
     desplazamiento: int = Query(default=0, ge=0),
     limite: int = Query(default=100, ge=1, le=100),
     db: Session = Depends(get_db),
+    actor: Actor = Depends(get_actor),
 ):
     return ProductoRepository(db).listar(
         categoria_id=categoria_id,
@@ -130,6 +140,7 @@ def listar_productos(
         solo_activos=solo_activos,
         skip=desplazamiento,
         limit=limite,
+        sector=actor.sector if actor.es_empresa else None,
     )
 
 
@@ -137,22 +148,16 @@ def listar_productos(
 def obtener_producto(
     producto_id: int,
     db: Session = Depends(get_db),
+    actor: Actor = Depends(get_actor),
 ):
-    producto = ProductoRepository(db).get(producto_id)
-
-    if producto is None:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Producto no encontrado.",
-        )
-
-    return producto
+    return producto_visible(db, actor, producto_id)
 
 
 @router.post(
     "/productos",
     response_model=ProductoRead,
     status_code=status.HTTP_201_CREATED,
+    dependencies=[Depends(requiere_admin)],
 )
 def crear_producto(
     datos: ProductoCreate,
@@ -173,7 +178,11 @@ def crear_producto(
         ) from exc
 
 
-@router.put("/productos/{producto_id}", response_model=ProductoRead)
+@router.put(
+    "/productos/{producto_id}",
+    response_model=ProductoRead,
+    dependencies=[Depends(requiere_admin)],
+)
 def actualizar_producto(
     producto_id: int,
     datos: ProductoUpdate,
@@ -201,7 +210,11 @@ def actualizar_producto(
         ) from exc
 
 
-@router.delete("/productos/{producto_id}", response_model=ProductoRead)
+@router.delete(
+    "/productos/{producto_id}",
+    response_model=ProductoRead,
+    dependencies=[Depends(requiere_admin)],
+)
 def desactivar_producto(
     producto_id: int,
     db: Session = Depends(get_db),
@@ -233,12 +246,14 @@ def listar_clientes(
     desplazamiento: int = Query(default=0, ge=0),
     limite: int = Query(default=100, ge=1, le=100),
     db: Session = Depends(get_db),
+    actor: Actor = Depends(get_actor),
 ):
     return ClienteB2BRepository(db).listar(
         busqueda=busqueda,
         solo_activos=solo_activos,
         skip=desplazamiento,
         limit=limite,
+        cliente_id=actor.cliente_id if actor.es_empresa else None,
     )
 
 
@@ -246,22 +261,16 @@ def listar_clientes(
 def obtener_cliente(
     cliente_id: int,
     db: Session = Depends(get_db),
+    actor: Actor = Depends(get_actor),
 ):
-    cliente = ClienteB2BRepository(db).get(cliente_id)
-
-    if cliente is None:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Cliente no encontrado.",
-        )
-
-    return cliente
+    return cliente_visible(db, actor, cliente_id)
 
 
 @router.post(
     "/clientes",
     response_model=ClienteB2BRead,
     status_code=status.HTTP_201_CREATED,
+    dependencies=[Depends(requiere_admin)],
 )
 def crear_cliente(
     datos: ClienteB2BCreate,
@@ -282,7 +291,11 @@ def crear_cliente(
         ) from exc
 
 
-@router.put("/clientes/{cliente_id}", response_model=ClienteB2BRead)
+@router.put(
+    "/clientes/{cliente_id}",
+    response_model=ClienteB2BRead,
+    dependencies=[Depends(requiere_admin)],
+)
 def actualizar_cliente(
     cliente_id: int,
     datos: ClienteB2BUpdate,
@@ -310,7 +323,11 @@ def actualizar_cliente(
         ) from exc
 
 
-@router.delete("/clientes/{cliente_id}", response_model=ClienteB2BRead)
+@router.delete(
+    "/clientes/{cliente_id}",
+    response_model=ClienteB2BRead,
+    dependencies=[Depends(requiere_admin)],
+)
 def desactivar_cliente(
     cliente_id: int,
     db: Session = Depends(get_db),

@@ -2,7 +2,16 @@ from typing import Any
 
 from nicegui import ui
 
+from components.forms import (
+    boton_orquidea,
+    campo_orquidea,
+    confirmar_accion,
+    mensaje_error,
+    mostrar_error,
+    notificar,
+)
 from components.layout import montar_layout
+from components.shared import ticket_factura
 from state.cliente_api import ClienteApi, ErrorApi
 from state.sesion import sesion
 
@@ -34,6 +43,11 @@ def obtener_pdf(cliente_api: ClienteApi, factura_id: int) -> bytes:
     return cliente_api.get(f"/api/v1/facturas/{factura_id}/pdf")
 
 
+def descargar_pdf(cliente_api: ClienteApi, factura_id: int) -> bytes:
+    """Descarga el documento sin exponer detalles técnicos."""
+    return obtener_pdf(cliente_api, factura_id)
+
+
 def _valor(datos: dict[str, Any], clave: str) -> str:
     valor = datos.get(clave)
     return "" if valor is None else str(valor)
@@ -41,79 +55,64 @@ def _valor(datos: dict[str, Any], clave: str) -> str:
 
 @ui.page("/facturacion/detalle")
 def pagina_detalle(factura_id: int | None = None) -> None:
-    montar_layout("Detalle de factura")
-
     inicial = factura_id
     if inicial is None and sesion.ultima_factura:
         inicial = sesion.ultima_factura.get("id")
 
-    entrada = ui.input(
-        "ID de factura", value=str(inicial) if inicial is not None else ""
+    texto_inicial = "" if inicial is None else str(inicial)
+    factura_inicial: dict[str, Any] | None = None
+    error_inicial: ErrorApi | None = None
+    id_invalido = bool(texto_inicial) and not texto_inicial.isdigit()
+    if texto_inicial.isdigit():
+        try:
+            factura_inicial = obtener(cliente, int(texto_inicial))
+        except ErrorApi as error:
+            error_inicial = error
+
+    numero_inicial = _valor(factura_inicial or {}, "numero_serie")
+    titulo = f"Factura {numero_inicial}" if numero_inicial else "Detalle de una factura"
+    montar_layout(
+        titulo,
+        ruta_activa="/facturacion/detalle",
+        migas="Facturas emitidas",
     )
-    ui.button("Cargar", on_click=lambda: cargar()).classes("mt-2")
+
+    with ui.row().classes("w-full items-end gap-2"):
+        entrada = campo_orquidea("Número de registro", value=texto_inicial)
+        boton_orquidea("Cargar", lambda: cargar(), variante="secundario")
     mensajes = ui.column()
     resultado = ui.column().classes("w-full")
     actual: dict[str, Any] = {"factura": None}
-
-    def mostrar_error(error: ErrorApi) -> None:
-        mensajes.clear()
-        with mensajes:
-            ui.label(f"{error.code}: {error.detail}").classes("text-negative")
-            for item in error.errors:
-                ui.label(str(item)).classes("text-caption text-negative")
 
     def pintar(factura: dict[str, Any]) -> None:
         actual["factura"] = factura
         sesion.ultima_factura = factura
         resultado.clear()
         with resultado:
-            with ui.card().classes("w-full"):
-                ui.label(
-                    f"{_valor(factura, 'numero_serie')} · {_valor(factura, 'estado')}"
-                ).classes("text-h6")
-                campos = (
-                    ("Cliente", "cliente_nombre"),
-                    ("RUC", "cliente_ruc"),
-                    ("Fecha", "fecha"),
-                    ("Condición", "condicion_pago"),
-                    ("Subtotal", "subtotal"),
-                    ("Descuento", "descuento_total"),
-                    ("Base gravada", "base_gravada"),
-                    ("Base exenta", "base_exenta"),
-                    ("ITBMS", "itbms"),
-                    ("Portes", "portes"),
-                    ("Total", "total"),
-                    ("Código de verificación", "codigo_verificacion"),
-                    ("Orden de compra", "orden_compra"),
-                    ("Notas", "notas"),
-                )
-                for etiqueta, campo in campos:
-                    with ui.row().classes("w-full justify-between"):
-                        ui.label(f"{etiqueta}:").classes("text-grey")
-                        ui.label(_valor(factura, campo))
-
-                ui.table(
-                    columns=list(COLUMNAS_LINEAS),
-                    rows=list(factura.get("lineas", [])),
-                    row_key="id",
-                ).classes("w-full")
-
-                with ui.row().classes("gap-2 mt-2"):
-                    ui.button("Anular", on_click=lambda: anular_actual())
-                    ui.button("Duplicar", on_click=lambda: duplicar_actual())
-                    ui.button("Descargar PDF", on_click=lambda: descargar())
+            with ui.element("div").classes("orq-dos-columnas w-full"):
+                ticket_factura(factura, list(COLUMNAS_LINEAS))
+                with ui.column().classes("w-full gap-2"):
+                    ui.label("Acciones").classes("orq-tabla-titulo")
+                    with ui.row().classes("orq-ticket-acciones w-full"):
+                        boton_orquidea("Anular", pedir_anulacion, variante="peligro")
+                        boton_orquidea(
+                            "Duplicar", duplicar_actual, variante="secundario"
+                        )
+                        boton_orquidea(
+                            "Descargar PDF", descargar, variante="secundario"
+                        )
 
     def cargar() -> None:
         mensajes.clear()
         texto = (entrada.value or "").strip()
         if not texto.isdigit():
             with mensajes:
-                ui.label("Ingresá un ID numérico de factura.").classes("text-negative")
+                mensaje_error("Ingresa un número de registro válido.")
             return
         try:
             factura = obtener(cliente, int(texto))
         except ErrorApi as error:
-            mostrar_error(error)
+            mostrar_error(mensajes, error)
             return
         pintar(factura)
 
@@ -124,10 +123,20 @@ def pagina_detalle(factura_id: int | None = None) -> None:
         try:
             actualizada = anular(cliente, int(factura["id"]))
         except ErrorApi as error:
-            mostrar_error(error)
+            mensajes.clear()
+            mostrar_error(mensajes, error)
             return
         pintar(actualizada)
-        ui.notify("Factura anulada.", type="positive")
+        notificar("Factura anulada. Ya no se puede emitir.")
+
+    def pedir_anulacion() -> None:
+        confirmar_accion(
+            "Anular factura",
+            "La factura dejará de estar vigente. Esta acción no se puede deshacer.",
+            anular_actual,
+            etiqueta_confirmar="Anular",
+            peligro=True,
+        )
 
     def duplicar_actual() -> None:
         factura = actual["factura"]
@@ -136,19 +145,21 @@ def pagina_detalle(factura_id: int | None = None) -> None:
         try:
             nueva = duplicar(cliente, int(factura["id"]))
         except ErrorApi as error:
-            mostrar_error(error)
+            mensajes.clear()
+            mostrar_error(mensajes, error)
             return
         pintar(nueva)
-        ui.notify(f"Duplicada como {nueva['numero_serie']}.", type="positive")
+        notificar(f"Duplicada como {nueva['numero_serie']}.")
 
     def descargar() -> None:
         factura = actual["factura"]
         if factura is None:
             return
         try:
-            contenido = obtener_pdf(cliente, int(factura["id"]))
+            contenido = descargar_pdf(cliente, int(factura["id"]))
         except ErrorApi as error:
-            mostrar_error(error)
+            mensajes.clear()
+            mostrar_error(mensajes, error)
             return
         ui.download(
             contenido,
@@ -156,5 +167,10 @@ def pagina_detalle(factura_id: int | None = None) -> None:
             media_type="application/pdf",
         )
 
-    if inicial is not None:
-        cargar()
+    if error_inicial is not None:
+        mostrar_error(mensajes, error_inicial)
+    elif id_invalido:
+        with mensajes:
+            mensaje_error("Ingresa un número de registro válido.")
+    elif factura_inicial is not None:
+        pintar(factura_inicial)

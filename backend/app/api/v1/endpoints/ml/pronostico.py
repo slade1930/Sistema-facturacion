@@ -9,7 +9,7 @@ from fastapi import APIRouter, Depends, Query
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.api.v1.deps import get_db, requiere_auth
+from app.api.v1.deps import get_db, requiere_admin, requiere_auth
 from app.ml.inferencia import cargador
 from app.ml.modelos import pronostico as modelo_clasico
 from app.ml.modelos import pronostico_lstm
@@ -18,7 +18,7 @@ from app.models.facturacion import EstadoFactura, Factura, LineaFactura
 router = APIRouter(
     prefix="/ml/pronostico",
     tags=["ml"],
-    dependencies=[Depends(requiere_auth)],
+    dependencies=[Depends(requiere_auth), Depends(requiere_admin)],
 )
 
 NOMBRES_MODELOS = ("pronostico_lstm.pt", "pronostico_clasico.joblib")

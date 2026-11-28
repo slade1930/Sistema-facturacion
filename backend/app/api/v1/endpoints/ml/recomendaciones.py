@@ -10,7 +10,13 @@ from __future__ import annotations
 from fastapi import APIRouter, Depends, Query
 from sqlalchemy.orm import Session
 
-from app.api.v1.deps import get_db, requiere_auth
+from app.api.v1.deps import (
+    Actor,
+    get_actor,
+    get_db,
+    requiere_auth,
+    requiere_empresa_o_admin,
+)
 from app.ml.features.recomendaciones import cestas_desde_dataset
 from app.ml.inferencia import cargador
 from app.ml.modelos import recomendaciones as modelo_autoencoder
@@ -25,7 +31,10 @@ router = APIRouter(
 )
 
 
-@router.get("", dependencies=[Depends(requiere_auth)])
+@router.get(
+    "",
+    dependencies=[Depends(requiere_auth), Depends(requiere_empresa_o_admin)],
+)
 def ruta_recomendaciones(
     producto_ids: str = Query(
         default="",
@@ -33,6 +42,7 @@ def ruta_recomendaciones(
     ),
     n: int = Query(default=5, ge=1, le=20),
     db: Session = Depends(get_db),
+    actor: Actor = Depends(get_actor),
 ) -> dict:
     """Entrada HTTP de `/ml/recomendaciones`."""
     ids = []
@@ -40,7 +50,13 @@ def ruta_recomendaciones(
         parte = parte.strip()
         if parte.isdigit():
             ids.append(int(parte))
-    return get_recomendaciones(producto_ids=ids, n=n, db=db)
+    return get_recomendaciones(
+        producto_ids=ids,
+        n=n,
+        db=db,
+        sector=actor.sector if actor.es_empresa else None,
+        cliente_id=actor.cliente_id if actor.es_empresa else None,
+    )
 
 NOMBRE_MODELO = modelo_autoencoder.NOMBRE_MODELO
 ARCHIVO_MODELO = modelo_autoencoder.ARCHIVO_MODELO
@@ -102,6 +118,9 @@ def get_recomendaciones(
     producto_ids: list[int] | None = None,
     n: int = 5,
     db: Session | None = None,
+    *,
+    sector: str | None = None,
+    cliente_id: int | None = None,
 ) -> dict:
     """Top-n de productos para sugerir al carrito actual.
 
@@ -112,21 +131,41 @@ def get_recomendaciones(
 
     # Solo activos: un producto dado de baja nunca se recomienda.
     try:
-        productos_activos = [
-            int(producto.id)
-            for producto in ProductoRepository(db).listar(
-                solo_activos=True, limit=MAX_PRODUCTOS
-            )
-        ]
+        productos = ProductoRepository(db).listar(
+            solo_activos=True, limit=MAX_PRODUCTOS
+        )
+        productos_activos = [int(producto.id) for producto in productos]
     except Exception:
+        productos = []
         productos_activos = []
     activos = set(productos_activos)
+
+    if sector is not None:
+        # La empresa solo puede ver productos de su sector; las pruebas de ML
+        # usan repositorios falsos sin el parámetro `sector`, por eso se filtra
+        # acá y no se cambia la firma de `listar`.
+        activos = {
+            int(producto.id)
+            for producto in productos
+            if getattr(producto, "categoria", None) is not None
+            and getattr(
+                getattr(producto.categoria, "sector", None), "value",
+                getattr(producto.categoria, "sector", None),
+            ) == sector
+        }
 
     try:
         facturas = FacturaRepository.listar(
             db, skip=0, limit=MAX_TRANSACCIONES
         )
         pedidos = PedidoB2BRepository(db).listar(skip=0, limit=MAX_TRANSACCIONES)
+        if cliente_id is not None:
+            facturas = [
+                f for f in facturas if getattr(f, "cliente_id", None) == cliente_id
+            ]
+            pedidos = [
+                p for p in pedidos if getattr(p, "cliente_id", None) == cliente_id
+            ]
         cestas = cestas_desde_dataset(
             {
                 "facturas": [_factura_dict(f) for f in facturas],

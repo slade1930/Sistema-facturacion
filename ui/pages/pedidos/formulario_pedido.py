@@ -1,12 +1,20 @@
-
 from typing import Any
 
 from nicegui import ui
 
+from components.forms import (
+    boton_enlace,
+    boton_orquidea,
+    campo_orquidea,
+    mostrar_error,
+    seccion_formulario,
+    selector_orquidea,
+)
 from components.layout import montar_layout
+from components.shared import estado_vacio, ticket_resumen
 from pages.catalogo.carrito import calcular as calcular_carrito
 from state.cliente_api import ClienteApi, ErrorApi
-from state.sesion import sesion
+from state.sesion import conectar_storage, sesion
 
 cliente = ClienteApi()
 
@@ -72,90 +80,114 @@ def _valor(datos: dict[str, Any], clave: str) -> str:
 
 
 @ui.page("/pedidos/formulario")
-def pagina_formulario_pedido() -> None:
-    montar_layout("Formulario de pedido")
+async def pagina_formulario_pedido() -> None:
+    await conectar_storage()
+    montar_layout(
+        "Armar un pedido", ruta_activa="/pedidos/formulario", migas="Productos"
+    )
+    ui.label("Formulario de pedido").classes("orq-ayuda")
 
     mensajes = ui.column()
-    clientes = ui.select({0: "Seleccione un cliente"}, label="Cliente", value=0)
-    notas = ui.input("Notas").classes("w-full")
-    resumen = ui.column().classes("w-full")
     calculo_actual: dict[str, Any] = {}
+
+    with ui.element("div").classes("orq-dos-columnas w-full"):
+        with ui.column().classes("w-full gap-4"):
+            with seccion_formulario(
+                "Datos del pedido",
+                "Elige el cliente y suma una nota si el pedido necesita una indicación.",
+            ):
+                clientes = selector_orquidea(
+                    "Cliente", {0: "Seleccione un cliente"}, value=0
+                ).classes("w-full")
+                notas = campo_orquidea(
+                    "Notas", placeholder="Entrega, horario o referencias"
+                ).classes("w-full")
+        with ui.column().classes("w-full"):
+            resumen = ui.column().classes("w-full")
 
     def cargar_clientes() -> None:
         try:
             datos = listar_clientes(cliente)
         except ErrorApi as error:
-            mensajes.clear()
-            with mensajes:
-                ui.label(f"{error.code}: {error.detail}").classes("text-negative")
+            mostrar_error(mensajes, error)
             return
+
         opciones: dict[Any, str] = {0: "Seleccione un cliente"}
         for item in datos:
-            opciones[item["id"]] = item["nombre_empresa"]
+            opciones[int(item["id"])] = _valor(item, "nombre_empresa")
         clientes.options = opciones
         clientes.update()
 
     def cargar_resumen() -> None:
         resumen.clear()
         calculo_actual.clear()
+
         if not sesion.carrito:
             with resumen:
-                ui.label("El carrito está vacío.").classes("text-grey")
+                estado_vacio(
+                    "El carrito está vacío.",
+                    "Agrega productos desde el catálogo antes de armar el pedido.",
+                )
             return
+
         try:
             calculo = calcular_carrito(cliente, sesion.carrito)
         except ErrorApi as error:
-            with resumen:
-                ui.label(f"{error.code}: {error.detail}").classes("text-negative")
+            mostrar_error(resumen, error)
             return
+
         calculo_actual.update(calculo)
+        lineas = [
+            {
+                "descripcion": (
+                    f"{_valor(linea, 'descripcion')} · "
+                    f"{_valor(linea, 'cantidad')} × "
+                    f"{_valor(linea, 'precio_unitario')}"
+                ),
+                "importe": _valor(linea, "subtotal"),
+            }
+            for linea in calculo.get("lineas", [])
+        ]
+
         with resumen:
-            with ui.card().classes("w-full"):
-                ui.label("Resumen del carrito").classes("text-h6")
-                for linea in calculo.get("lineas", []):
-                    ui.label(
-                        f"{linea['descripcion']} · {linea['cantidad']} "
-                        f"× {linea['precio_unitario']} = {linea['subtotal']}"
-                    )
-                with ui.row().classes("w-full justify-between"):
-                    ui.label("Subtotal").classes("text-grey")
-                    ui.label(_valor(calculo, "subtotal"))
-                with ui.row().classes("w-full justify-between"):
-                    ui.label("Total estimado").classes("text-grey")
-                    ui.label(_valor(calculo, "total"))
+            ticket_resumen(calculo, lineas, titulo="Resumen del carrito")
+            ui.label(
+                f"Total estimado: {_valor(calculo, 'subtotal')}"
+            ).classes("orq-resumen mt-2")
 
     def guardar() -> None:
         mensajes.clear()
+
         if not clientes.value:
             with mensajes:
-                ui.label("Seleccione un cliente.").classes("text-negative")
+                ui.label("Elige un cliente para continuar.").classes("orq-error")
             return
         if not calculo_actual:
             with mensajes:
-                ui.label("No se pudo calcular el carrito.").classes("text-negative")
+                ui.label("No se pudo calcular el carrito.").classes("orq-error")
             return
+
         try:
             payload = construir_pedido(
                 int(clientes.value), notas.value, sesion.carrito, calculo_actual
             )
         except ValueError as error:
             with mensajes:
-                ui.label(str(error)).classes("text-negative")
+                ui.label(str(error)).classes("orq-error")
             return
+
         try:
             pedido = crear_pedido(cliente, payload)
         except ErrorApi as error:
-            with mensajes:
-                ui.label(f"{error.code}: {error.detail}").classes("text-negative")
-                for item in error.errors:
-                    ui.label(str(item)).classes("text-caption text-negative")
+            mostrar_error(mensajes, error)
             return
+
         sesion.carrito.clear()
         ui.navigate.to(f"/pedidos/exitoso?pedido_id={pedido['id']}")
 
-    with ui.row().classes("gap-2 my-2"):
-        ui.button("Crear pedido", on_click=guardar)
-        ui.button("Volver al carrito", on_click=lambda: ui.navigate.to("/carrito"))
+    with ui.row().classes("orq-barra-acciones w-full"):
+        boton_orquidea("Crear pedido", guardar)
+        boton_enlace("Volver al carrito", "/carrito", variante="secundario")
 
     cargar_clientes()
     cargar_resumen()

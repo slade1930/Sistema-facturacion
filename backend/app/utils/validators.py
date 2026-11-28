@@ -30,7 +30,14 @@ __all__ = [
     "validar_unidades_por_caja",
     "validar_linea",
     "validar_lineas",
+    "validar_ruc",
+    "validar_correo",
+    "validar_telefono",
 ]
+
+PATRON_RUC = re.compile(r"^[A-Za-z0-9\- ]{4,40}$")
+PATRON_CORREO = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
+PATRON_TELEFONO = re.compile(r"^[0-9+\-() ]{4,60}$")
 
 
 # ---------- Series ----------
@@ -132,3 +139,32 @@ def validar_lineas(lineas) -> None:
             validar_linea(linea)
         except ValueError as e:
             raise ValueError(f"Línea {i}: {e}")
+
+
+# ---------- Portal de empresas ----------
+
+def validar_ruc(ruc) -> str:
+    """Acepta entre 4 y 40 caracteres alfanuméricos, guiones o espacios."""
+    valor = str(ruc or "").strip()
+    if not PATRON_RUC.match(valor):
+        raise ValueError("El RUC debe tener entre 4 y 40 caracteres válidos.")
+    return valor
+
+
+def validar_correo(correo) -> str:
+    """Comprueba el formato básico de correo y devuelve el valor sin espacios."""
+    valor = str(correo or "").strip()
+    if len(valor) > 254 or not PATRON_CORREO.match(valor):
+        raise ValueError("El correo electrónico no tiene un formato válido.")
+    return valor
+
+
+def validar_telefono(telefono) -> str | None:
+    """Teléfono opcional con números y separadores comunes."""
+    if telefono is None or str(telefono).strip() == "":
+        return None
+    valor = str(telefono).strip()
+    if not PATRON_TELEFONO.match(valor):
+        raise ValueError("El teléfono no tiene un formato válido.")
+    return valor
+

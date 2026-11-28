@@ -28,7 +28,7 @@ from app.db.base import Base
 
 if TYPE_CHECKING:
     # Ojo: estos viven en catalogo.py. Solo para los tipos, así no hay import circular.
-    from app.models.catalogo import PedidoB2B, Producto
+    from app.models.catalogo import ClienteB2B, PedidoB2B, Producto
 
 BIGINT = BigInteger().with_variant(Integer, "sqlite")
 
@@ -117,6 +117,7 @@ class Factura(Base):
             name="ck_factura_totales",
         ),
         Index("ix_factura_fecha", "fecha"),
+        Index("ix_factura_cliente", "cliente_id"),
     )
 
     id: Mapped[int] = mapped_column(BIGINT, primary_key=True)
@@ -125,6 +126,11 @@ class Factura(Base):
     codigo_verificacion: Mapped[str] = mapped_column(String(12), nullable=False)
     fecha: Mapped[date] = mapped_column(Date, nullable=False)
 
+    cliente_id: Mapped[int | None] = mapped_column(
+        BIGINT,
+        ForeignKey("cliente_b2b.id", ondelete="SET NULL"),
+        nullable=True,
+    )
     cliente_nombre: Mapped[str] = mapped_column(String(200), nullable=False)
     cliente_ruc: Mapped[str | None] = mapped_column(String(40), nullable=True)
     mostrar_ruc: Mapped[bool] = mapped_column(
@@ -194,6 +200,7 @@ class Factura(Base):
     pedido_origen: Mapped[list["PedidoB2B"]] = relationship(
         "PedidoB2B", back_populates="factura_generada"
     )
+    cliente: Mapped[Optional["ClienteB2B"]] = relationship("ClienteB2B")
 
 
 class LineaFactura(Base):

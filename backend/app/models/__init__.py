@@ -10,6 +10,7 @@ from .catalogo import (
     LineaPedidoB2B,
     PedidoB2B,
     Producto,
+    SectorEmpresa,
     TipoEmpaque,
 )
 from .facturacion import (
@@ -21,6 +22,8 @@ from .facturacion import (
     Factura,
     LineaFactura,
 )
+from .inventario import Inventario, MovimientoInventario, TipoMovimiento
+from .seguridad import Auditoria, Cuenta, RolCuenta, Sesion
 
 __all__ = [
     "Categoria",
@@ -38,4 +41,12 @@ __all__ = [
     "PedidoB2B",
     "Producto",
     "TipoEmpaque",
+    "SectorEmpresa",
+    "RolCuenta",
+    "Cuenta",
+    "Sesion",
+    "Auditoria",
+    "Inventario",
+    "MovimientoInventario",
+    "TipoMovimiento",
 ]
